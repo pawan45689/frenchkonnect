@@ -40,7 +40,15 @@ dirs.forEach((dir) => {
 });
 
 // ── Middleware ───────────────────────────────────────────────
-app.use(cors());
+// app.use(cors());
+jsapp.use(cors({
+  origin: [
+    'http://localhost:5173',
+    'https://frenchkonnect.com',
+    'https://www.frenchkonnect.com'
+  ],
+  credentials: true
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(fileUpload());
