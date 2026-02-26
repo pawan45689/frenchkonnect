@@ -41,7 +41,7 @@ dirs.forEach((dir) => {
 
 // ── Middleware ───────────────────────────────────────────────
 // app.use(cors());
-jsapp.use(cors({
+app.use(cors({
   origin: [
     'http://localhost:5173',
     'https://frenchkonnect.com',
