@@ -31,15 +31,15 @@ export const createLesson = async (req, res) => {
     }
 
     const lesson = await Lesson.create({
-      level_id:     section.level_id,
-      section_id:   sectionId,
-      lessonTitle:  lessonTitle.trim(),
+      level_id:      section.level_id,
+      section_id:    sectionId,
+      lessonTitle:   lessonTitle.trim(),
       description,
       lessonType,
-      xpPoints:     Number(xpPoints) || 50,
-      displayOrder: Number(displayOrder) || 1,
-      isLocked:     isLocked !== undefined ? (isLocked === "true" || isLocked === true) : true,
-      isActive:     isActive !== undefined ? (isActive !== "false" && isActive !== false) : true,
+      xpPoints:      Number(xpPoints) || 50,
+      displayOrder:  Number(displayOrder) || 1,
+      isLocked:      isLocked !== undefined ? (isLocked === "true" || isLocked === true) : true,
+      isActive:      isActive !== undefined ? (isActive !== "false" && isActive !== false) : true,
       contentBlocks: blocks,
     });
 
@@ -183,10 +183,17 @@ export const deleteLesson = async (req, res) => {
 /* ══════════════════════════════════════════════════════════════
    PUBLIC — USER OPENS A LESSON
    GET /api/v1/lessons/:lessonId
+   ✅ level_id aur section_id dono populate kiye — LevelHeader ke liye
 ══════════════════════════════════════════════════════════════ */
 export const getLessonForUser = async (req, res) => {
   try {
-    const lesson = await Lesson.findOne({ _id: req.params.lessonId, isActive: true });
+    const lesson = await Lesson.findOne({ _id: req.params.lessonId, isActive: true })
+      .populate(
+        "level_id",
+        "levelName title isFree description whatYouWillLearn levelOutcome bannerImage"
+      )
+      .populate("section_id", "sectionName");
+
     if (!lesson) return res.status(404).json({ success: false, message: "Lesson not found" });
 
     if (lesson.isLocked) {

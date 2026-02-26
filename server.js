@@ -12,7 +12,8 @@ import privacyPolicyRoutes from "./routes/privecyPolicyRoutes.js";
 import termsConditionsRoutes from "./routes/termsConditionsRoutes.js";
 import newsRoutes from "./routes/newsRoutes.js";
 import questionRoutes from "./routes/questionRoutes.js";
-
+import aboutRoutes from "./routes/aboutRoutes.js";
+import progressRoutes from "./routes/progressRoutes.js";
 // ── NEW: Level / Section / Lesson ────────────────────────────
 import levelRoutes from "./routes/levelRoutes.js";
 // ─────────────────────────────────────────────────────────────
@@ -61,6 +62,9 @@ app.use("/api/v1/privacy-policy",   privacyPolicyRoutes);
 app.use("/api/v1/terms-conditions", termsConditionsRoutes);
 app.use("/api/v1/news",             newsRoutes);
 app.use("/api/v1/questions",        questionRoutes);
+app.use("/api/v1/about",            aboutRoutes);
+app.use("/api/v1", progressRoutes);
+
 
 // ── NEW: Level / Section / Lesson routes ─────────────────────
 app.use("/api/v1", levelRoutes);
