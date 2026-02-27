@@ -49,7 +49,8 @@ app.use(cors({
   origin: [
     'http://localhost:5173',
     'https://frenchkonnect.com',
-    'https://www.frenchkonnect.com'
+    'https://www.frenchkonnect.com',
+     'https://admin.frenchkonnect.com'
   ],
   credentials: true
 }));
