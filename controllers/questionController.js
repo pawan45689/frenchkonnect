@@ -3,38 +3,39 @@ import Question from "../models/Question.js";
 // ─── ADMIN: Get all questions (with pagination, search, filter) ───
 export const getAllQuestions = async (req, res) => {
   try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
-    const search = req.query.search || "";
-    const level = req.query.level || "";
-    const category = req.query.category || "";
+    const page     = parseInt(req.query.page)  || 1;
+    const limit    = parseInt(req.query.limit) || 10;
+    const search   = req.query.search   || "";
+    const levelId  = req.query.level    || "";   // Level ObjectId
+    const categoryId = req.query.category || ""; // Section ObjectId
     const isActive = req.query.isActive;
 
     const query = {};
 
     if (search) {
       query.$or = [
-        { question: { $regex: search, $options: "i" } },
+        { question:  { $regex: search, $options: "i" } },
         { examTitle: { $regex: search, $options: "i" } },
-        { category: { $regex: search, $options: "i" } },
       ];
     }
-    if (level) query.level = level;
-    if (category) query.category = { $regex: category, $options: "i" };
+    if (levelId)    query.level    = levelId;
+    if (categoryId) query.category = categoryId;
     if (isActive !== undefined) query.isActive = isActive === "true";
 
-    const total = await Question.countDocuments(query);
+    const total      = await Question.countDocuments(query);
     const totalPages = Math.ceil(total / limit);
-    const skip = (page - 1) * limit;
+    const skip       = (page - 1) * limit;
 
     const questions = await Question.find(query)
       .sort({ order: 1, createdAt: -1 })
       .skip(skip)
-      .limit(limit);
+      .limit(limit)
+      .populate("level",    "levelName title")   // Level ke fields
+      .populate("category", "sectionName");       // Section ke fields
 
     const stats = {
-      total: await Question.countDocuments(),
-      active: await Question.countDocuments({ isActive: true }),
+      total:    await Question.countDocuments(),
+      active:   await Question.countDocuments({ isActive: true }),
       inactive: await Question.countDocuments({ isActive: false }),
       thisWeek: await Question.countDocuments({
         createdAt: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
@@ -57,7 +58,10 @@ export const getAllQuestions = async (req, res) => {
 // ─── ADMIN: Get single question ───
 export const getQuestionById = async (req, res) => {
   try {
-    const question = await Question.findById(req.params.id);
+    const question = await Question.findById(req.params.id)
+      .populate("level",    "levelName title")
+      .populate("category", "sectionName");
+
     if (!question) {
       return res.status(404).json({ success: false, message: "Question not found" });
     }
@@ -71,17 +75,14 @@ export const getQuestionById = async (req, res) => {
 export const createQuestion = async (req, res) => {
   try {
     const {
-      examTitle,
-      level,
-      category,
-      question,
-      options,
-      correct,
-      explanation,
-      timeLimit,
-      isActive,
-      order,
+      examTitle, level, category, question,
+      options, correct, explanation,
+      timeLimit, isActive, order,
     } = req.body;
+
+    // level  → Level  ObjectId
+    // category → Section ObjectId
+    // Frontend dropdown se select karke bhejega
 
     if (correct < 0 || correct >= options.length) {
       return res.status(400).json({
@@ -91,17 +92,14 @@ export const createQuestion = async (req, res) => {
     }
 
     const newQuestion = await Question.create({
-      examTitle,
-      level,
-      category,
-      question,
-      options,
-      correct,
-      explanation,
-      timeLimit,
-      isActive,
-      order,
+      examTitle, level, category, question,
+      options, correct, explanation,
+      timeLimit, isActive, order,
     });
+
+    // Populate kar ke return karo taaki frontend ko IDs ki jagah names milein
+    await newQuestion.populate("level",    "levelName title");
+    await newQuestion.populate("category", "sectionName");
 
     res.status(201).json({
       success: true,
@@ -124,7 +122,9 @@ export const updateQuestion = async (req, res) => {
     const updated = await Question.findByIdAndUpdate(req.params.id, req.body, {
       new: true,
       runValidators: true,
-    });
+    })
+      .populate("level",    "levelName title")
+      .populate("category", "sectionName");
 
     res.status(200).json({
       success: true,
@@ -145,7 +145,6 @@ export const deleteQuestion = async (req, res) => {
     }
 
     await Question.findByIdAndDelete(req.params.id);
-
     res.status(200).json({ success: true, message: "Question deleted successfully" });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -173,27 +172,31 @@ export const toggleStatus = async (req, res) => {
   }
 };
 
-// ─── PUBLIC: Get exam questions by level & category ───
+// ─── PUBLIC: Get exam questions by level & category (ObjectIds) ───
 export const getExamQuestions = async (req, res) => {
   try {
     const { level, category } = req.query;
+    // level    → Level ObjectId
+    // category → Section ObjectId
 
     const query = { isActive: true };
-    if (level) query.level = level;
-    if (category) query.category = { $regex: category, $options: "i" };
+    if (level)    query.level    = level;
+    if (category) query.category = category;
 
     const questions = await Question.find(query)
       .sort({ order: 1, createdAt: 1 })
+      .populate("level",    "levelName title")
+      .populate("category", "sectionName")
       .select("-createdAt -updatedAt -__v");
 
     // Correct answer index hide karo exam ke dauran
     const sanitized = questions.map((q) => ({
-      id: q._id,
+      id:        q._id,
       examTitle: q.examTitle,
-      level: q.level,
-      category: q.category,
-      question: q.question,
-      options: q.options,
+      level:     q.level,      // populated object
+      category:  q.category,   // populated object
+      question:  q.question,
+      options:   q.options,
       timeLimit: q.timeLimit,
     }));
 
@@ -217,7 +220,7 @@ export const submitExam = async (req, res) => {
     }
 
     const questionIds = answers.map((a) => a.questionId);
-    const questions = await Question.find({ _id: { $in: questionIds } });
+    const questions   = await Question.find({ _id: { $in: questionIds } });
 
     let score = 0;
     const results = answers.map((answer) => {
@@ -228,21 +231,21 @@ export const submitExam = async (req, res) => {
       if (isCorrect) score++;
 
       return {
-        questionId: answer.questionId,
-        question: q.question,
+        questionId:    answer.questionId,
+        question:      q.question,
         selectedIndex: answer.selectedIndex,
-        correctIndex: q.correct,
+        correctIndex:  q.correct,
         correctAnswer: q.options[q.correct],
-        yourAnswer: q.options[answer.selectedIndex] ?? "Not answered",
+        yourAnswer:    q.options[answer.selectedIndex] ?? "Not answered",
         isCorrect,
-        explanation: q.explanation,
+        explanation:   q.explanation,
       };
     });
 
     res.status(200).json({
       success: true,
       score,
-      total: questions.length,
+      total:      questions.length,
       percentage: Math.round((score / questions.length) * 100),
       results,
     });
@@ -255,15 +258,31 @@ export const submitExam = async (req, res) => {
 export const getStats = async (req, res) => {
   try {
     const stats = {
-      total: await Question.countDocuments(),
-      active: await Question.countDocuments({ isActive: true }),
+      total:    await Question.countDocuments(),
+      active:   await Question.countDocuments({ isActive: true }),
       inactive: await Question.countDocuments({ isActive: false }),
       thisWeek: await Question.countDocuments({
         createdAt: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
       }),
+      // Level ke naam ke saath group karo
       byLevel: await Question.aggregate([
-        { $group: { _id: "$level", count: { $sum: 1 } } },
-        { $sort: { _id: 1 } },
+        {
+          $lookup: {
+            from:         "levels",
+            localField:   "level",
+            foreignField: "_id",
+            as:           "levelInfo",
+          },
+        },
+        { $unwind: { path: "$levelInfo", preserveNullAndEmpty: true } },
+        {
+          $group: {
+            _id:       "$level",
+            levelName: { $first: "$levelInfo.levelName" },
+            count:     { $sum: 1 },
+          },
+        },
+        { $sort: { levelName: 1 } },
       ]),
     };
     res.status(200).json({ success: true, stats });

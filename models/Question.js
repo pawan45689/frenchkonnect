@@ -7,17 +7,21 @@ const questionSchema = new mongoose.Schema(
       required: [true, "Exam title is required"],
       trim: true,
     },
+
+    // ✅ Ab yeh Level collection ka ObjectId reference hai
     level: {
-      type: String,
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Level",
       required: [true, "Level is required"],
-      enum: ["A1", "A2", "B1", "B2", "C1", "C2"],
-      default: "A1",
     },
+
+    // ✅ Ab yeh Section collection ka ObjectId reference hai
     category: {
-      type: String,
-      required: [true, "Category is required"],
-      trim: true,
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Section",
+      required: [true, "Category (Section) is required"],
     },
+
     question: {
       type: String,
       required: [true, "Question text is required"],

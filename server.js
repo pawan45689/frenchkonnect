@@ -13,6 +13,7 @@ import termsConditionsRoutes from "./routes/termsConditionsRoutes.js";
 import newsRoutes from "./routes/newsRoutes.js";
 import questionRoutes from "./routes/questionRoutes.js";
 import progressRoutes from "./routes/progressRoutes.js";
+import aboutRoutes from "./routes/aboutRoutes.js";
 // ── NEW: Level / Section / Lesson ────────────────────────────
 import levelRoutes from "./routes/levelRoutes.js";
 // ─────────────────────────────────────────────────────────────
@@ -34,21 +35,24 @@ const dirs = [
   path.join(__dirname, "uploads/news-imports"),
   // NEW
   path.join(__dirname, "uploads/levels"),
+  path.join(__dirname, "uploads/core-values"),
+path.join(__dirname, "uploads/metrics"),
+path.join(__dirname, "uploads/timelines"),
 ];
 dirs.forEach((dir) => {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 });
 
 // ── Middleware ───────────────────────────────────────────────
-// app.use(cors());
-app.use(cors({
-  origin: [
-    'http://localhost:5173',
-    'https://frenchkonnect.com',
-    'https://www.frenchkonnect.com'
-  ],
-  credentials: true
-}));
+app.use(cors());
+// app.use(cors({
+//   origin: [
+//     'http://localhost:5173',
+//     'https://frenchkonnect.com',
+//     'https://www.frenchkonnect.com'
+//   ],
+//   credentials: true
+// }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(fileUpload());
@@ -70,6 +74,7 @@ app.use("/api/v1/terms-conditions", termsConditionsRoutes);
 app.use("/api/v1/news",             newsRoutes);
 app.use("/api/v1/questions",        questionRoutes);
 app.use("/api/v1", progressRoutes);
+app.use("/api/v1/about",            aboutRoutes);
 
 
 // ── NEW: Level / Section / Lesson routes ─────────────────────
