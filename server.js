@@ -48,9 +48,12 @@ dirs.forEach((dir) => {
 app.use(cors({
   origin: [
     'http://localhost:5173',
+    'http://localhost:5174',
+    'https://frenchkonnect.onrender.com',  // ← render
     'https://frenchkonnect.com',
     'https://www.frenchkonnect.com',
-     'http://admin.frenchkonnect.com'
+    'http://admin.frenchkonnect.com',
+    'https://admin.frenchkonnect.com',
   ],
   credentials: true
 }));
