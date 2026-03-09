@@ -1,29 +1,7 @@
 import Level from "../models/Level.js";
 import Section from "../models/Section.js";
 import Lesson from "../models/Lesson.js";
-import path from "path";
-import fs from "fs";
-import { fileURLToPath } from "url";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-const UPLOAD_DIR = path.join(__dirname, "../uploads/levels");
-if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
-
-const saveFile = (file, folder) => {
-  const ext      = path.extname(file.name);
-  const fileName = `${folder}_${Date.now()}${ext}`;
-  const filePath = path.join(UPLOAD_DIR, fileName);
-  file.mv(filePath);
-  return `uploads/levels/${fileName}`;
-};
-
-const deleteFile = (filePath) => {
-  if (!filePath) return;
-  const full = path.join(__dirname, "..", filePath);
-  if (fs.existsSync(full)) fs.unlinkSync(full);
-};
+import { uploadToCloudinary, deleteFromCloudinary } from "../utils/cloudinary.js";
 
 /* ══════════════════════════════════════════════════════════════
    ADMIN — CREATE LEVEL (no auto sections)
@@ -57,7 +35,7 @@ export const createLevel = async (req, res) => {
 
     let bannerImage = "";
     if (req.files?.bannerImage) {
-      bannerImage = saveFile(req.files.bannerImage, "banner");
+      bannerImage = await uploadToCloudinary(req.files.bannerImage.data, "levels");
     }
 
     const level = await Level.create({
@@ -90,7 +68,6 @@ export const getAllLevels = async (req, res) => {
   try {
     const levels = await Level.find().sort({ displayOrder: 1 });
 
-    // attach section count to each level
     const levelsWithCount = await Promise.all(
       levels.map(async (lvl) => {
         const sectionCount = await Section.countDocuments({ level_id: lvl._id });
@@ -151,15 +128,14 @@ export const updateLevel = async (req, res) => {
 
     let bannerImage = level.bannerImage;
 
-    // Remove existing banner if requested
     if (removeBanner === "true") {
-      deleteFile(level.bannerImage);
+      await deleteFromCloudinary(level.bannerImage);
       bannerImage = "";
     }
 
     if (req.files?.bannerImage) {
-      deleteFile(level.bannerImage);
-      bannerImage = saveFile(req.files.bannerImage, "banner");
+      await deleteFromCloudinary(level.bannerImage);
+      bannerImage = await uploadToCloudinary(req.files.bannerImage.data, "levels");
     }
 
     if (levelName && levelName.trim() !== level.levelName) {
@@ -216,7 +192,7 @@ export const deleteLevel = async (req, res) => {
     const level = await Level.findById(req.params.levelId);
     if (!level) return res.status(404).json({ success: false, message: "Level not found" });
 
-    deleteFile(level.bannerImage);
+    await deleteFromCloudinary(level.bannerImage);
     await Lesson.deleteMany({ level_id: level._id });
     await Section.deleteMany({ level_id: level._id });
     await Level.findByIdAndDelete(level._id);

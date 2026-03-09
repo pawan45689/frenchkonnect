@@ -1,29 +1,5 @@
 import AboutPage from "../models/AboutPage.js";
-import path from "path";
-import fs from "fs";
-import { fileURLToPath } from "url";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname  = path.dirname(__filename);
-
-const UPLOAD_DIR = path.join(__dirname, "../uploads/about");
-if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
-
-/* ── Helper: file save ── */
-const saveFile = (file, prefix) => {
-  const ext      = path.extname(file.name);
-  const fileName = `${prefix}_${Date.now()}${ext}`;
-  const filePath = path.join(UPLOAD_DIR, fileName);
-  file.mv(filePath);
-  return `uploads/about/${fileName}`;
-};
-
-/* ── Helper: file delete ── */
-const deleteFile = (filePath) => {
-  if (!filePath) return;
-  const full = path.join(__dirname, "..", filePath);
-  if (fs.existsSync(full)) fs.unlinkSync(full);
-};
+import { uploadToCloudinary, deleteFromCloudinary } from "../utils/cloudinary.js";
 
 /* ── Singleton: ek hi document ensure karo ── */
 const getSingleton = async () => {
@@ -48,7 +24,7 @@ export const getAboutPage = async (req, res) => {
 /* ══════════════════════════════════════════════════════════════
    ADMIN — UPDATE About Page
    PUT /api/v1/admin/about
-   Supports: storyImage + teamIntroImage upload
+   Supports: storyImage + teamIntroImage upload (Cloudinary)
    Supports: teamIntroHighlights as JSON string
 ══════════════════════════════════════════════════════════════ */
 export const updateAboutPage = async (req, res) => {
@@ -67,13 +43,25 @@ export const updateAboutPage = async (req, res) => {
 
     /* ── Story Image ── */
     let storyImage = doc.storyImage;
-    if (removeStoryImage === "true") { deleteFile(doc.storyImage); storyImage = ""; }
-    if (req.files?.storyImage)       { deleteFile(doc.storyImage); storyImage = saveFile(req.files.storyImage, "story"); }
+    if (removeStoryImage === "true") {
+      await deleteFromCloudinary(doc.storyImage);
+      storyImage = "";
+    }
+    if (req.files?.storyImage) {
+      await deleteFromCloudinary(doc.storyImage);
+      storyImage = await uploadToCloudinary(req.files.storyImage.data, "about");
+    }
 
     /* ── Team Intro Image ── */
     let teamIntroImage = doc.teamIntroImage;
-    if (removeTeamIntroImage === "true") { deleteFile(doc.teamIntroImage); teamIntroImage = ""; }
-    if (req.files?.teamIntroImage)       { deleteFile(doc.teamIntroImage); teamIntroImage = saveFile(req.files.teamIntroImage, "team_intro"); }
+    if (removeTeamIntroImage === "true") {
+      await deleteFromCloudinary(doc.teamIntroImage);
+      teamIntroImage = "";
+    }
+    if (req.files?.teamIntroImage) {
+      await deleteFromCloudinary(doc.teamIntroImage);
+      teamIntroImage = await uploadToCloudinary(req.files.teamIntroImage.data, "about");
+    }
 
     /* ── Team Intro Highlights (JSON string ya array) ── */
     let highlights = doc.teamIntroHighlights;

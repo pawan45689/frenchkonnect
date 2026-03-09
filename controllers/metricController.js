@@ -1,31 +1,8 @@
 import Metric from "../models/Metric.js";
-import path from "path";
-import fs from "fs";
-import { fileURLToPath } from "url";
+import { uploadToCloudinary, deleteFromCloudinary } from "../utils/cloudinary.js";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname  = path.dirname(__filename);
-
-const UPLOAD_DIR = path.join(__dirname, "../uploads/metrics");
-if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
-
-/* ── Helper: icon image save karo ── */
-const saveIcon = (file) => {
-  const ext      = path.extname(file.name);
-  const fileName = `metric_${Date.now()}${ext}`;
-  const filePath = path.join(UPLOAD_DIR, fileName);
-  file.mv(filePath);
-  return `uploads/metrics/${fileName}`;
-};
-
-/* ── Helper: purani icon image delete karo ── */
-const deleteIcon = (iconPath) => {
-  if (!iconPath) return;
-  // Sirf file paths delete karo, text icons (emoji/class) nahi
-  if (!iconPath.startsWith("uploads/")) return;
-  const full = path.join(__dirname, "..", iconPath);
-  if (fs.existsSync(full)) fs.unlinkSync(full);
-};
+/* ── Helper: text icon hai ya Cloudinary URL ── */
+const isCloudinaryUrl = (icon) => icon?.includes("cloudinary.com");
 
 /* ══════════════════════════════════════════════════════════════
    PUBLIC — GET all active metrics
@@ -85,7 +62,7 @@ export const createMetric = async (req, res) => {
     /* Icon logic: file upload > text icon */
     let iconValue = icon?.trim() || "";
     if (req.files?.iconImage) {
-      iconValue = saveIcon(req.files.iconImage);
+      iconValue = await uploadToCloudinary(req.files.iconImage.data, "metrics");
     }
 
     if (!iconValue) {
@@ -125,14 +102,14 @@ export const updateMetric = async (req, res) => {
     /* Icon logic */
     let iconValue = metric.icon;
     if (removeIcon === "true") {
-      deleteIcon(metric.icon);
+      await deleteFromCloudinary(metric.icon);
       iconValue = "";
     }
     if (req.files?.iconImage) {
-      deleteIcon(metric.icon);
-      iconValue = saveIcon(req.files.iconImage);
+      await deleteFromCloudinary(metric.icon);
+      iconValue = await uploadToCloudinary(req.files.iconImage.data, "metrics");
     } else if (icon !== undefined) {
-      deleteIcon(metric.icon); // purani image delete karo agar text icon set ho raha hai
+      if (isCloudinaryUrl(metric.icon)) await deleteFromCloudinary(metric.icon);
       iconValue = icon.trim();
     }
 
@@ -181,8 +158,7 @@ export const deleteMetric = async (req, res) => {
     const metric = await Metric.findByIdAndDelete(req.params.id);
     if (!metric) return res.status(404).json({ success: false, message: "Metric not found" });
 
-    /* Icon image bhi delete karo */
-    deleteIcon(metric.icon);
+    await deleteFromCloudinary(metric.icon);
 
     res.status(200).json({ success: true, message: "Metric deleted" });
   } catch (err) {

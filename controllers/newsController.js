@@ -1,15 +1,9 @@
 import News from "../models/newsModel.js";
 import path from "path";
-import fs from "fs";
-import { fileURLToPath } from "url";
 import XLSX from "xlsx";
+import { uploadToCloudinary, deleteFromCloudinary } from "../utils/cloudinary.js";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-const ensureDir = (dir) => {
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-};
+// ── fs aur ensureDir hata diye — ab disk pe kuch save nahi hoga ──
 
 const normalizeHeaders = (rows) => {
   return rows.map((row) => {
@@ -29,27 +23,7 @@ const parseArrayField = (val) => {
     const parsed = JSON.parse(val);
     return Array.isArray(parsed) ? parsed : [];
   } catch {
-    return val
-      .toString()
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean);
-  }
-};
-
-/* ─────────────────────────────────────────────────────────
-   Helper: Save an uploaded image file
-───────────────────────────────────────────────────────── */
-const saveUploadedImage = async (file, destDir, prefix) => {
-  ensureDir(destDir);
-  const fileName = `${prefix}_${Date.now()}_${file.name.replace(/\s/g, "_")}`;
-  await file.mv(path.join(destDir, fileName));
-  return fileName;
-};
-
-const deleteLocalFile = (filePath) => {
-  if (filePath && !filePath.startsWith("http") && fs.existsSync(filePath)) {
-    fs.unlinkSync(filePath);
+    return val.toString().split(",").map((s) => s.trim()).filter(Boolean);
   }
 };
 
@@ -58,10 +32,7 @@ const deleteLocalFile = (filePath) => {
 ───────────────────────────────────────────────────────── */
 export const getAllNews = async (req, res) => {
   try {
-    const {
-      page = 1, limit = 10,
-      search = "", category = "", tab = "", status = "",
-    } = req.query;
+    const { page = 1, limit = 10, search = "", category = "", tab = "", status = "" } = req.query;
 
     const query = {};
     if (search) {
@@ -82,14 +53,8 @@ export const getAllNews = async (req, res) => {
       .limit(Number(limit));
 
     res.json({
-      success: true,
-      data: news,
-      pagination: {
-        total,
-        page:       Number(page),
-        limit:      Number(limit),
-        totalPages: Math.ceil(total / limit),
-      },
+      success: true, data: news,
+      pagination: { total, page: Number(page), limit: Number(limit), totalPages: Math.ceil(total / limit) },
     });
   } catch {
     res.status(500).json({ success: false, message: "Server error" });
@@ -125,31 +90,22 @@ export const createNews = async (req, res) => {
       return res.status(400).json({ success: false, message: "Title, category and author are required" });
     }
 
-    const newsDir       = path.join(__dirname, "../uploads/news");
-    const authorsDir    = path.join(__dirname, "../uploads/news/authors");
-
-    // ── Primary image ───────────────────────────────────
     let image = null;
     if (req.files?.image) {
-      image = await saveUploadedImage(req.files.image, newsDir, "news");
+      image = await uploadToCloudinary(req.files.image.data, "news");
     }
 
-    // ── Author image ─────────────────────────────────────
     let authorImage = null;
     if (req.files?.authorImage) {
-      authorImage = await saveUploadedImage(req.files.authorImage, authorsDir, "author");
+      authorImage = await uploadToCloudinary(req.files.authorImage.data, "news/authors");
     }
 
-    // ── Additional images (array) ────────────────────────
     let images = [];
     if (req.files?.images) {
-      // express-fileupload wraps single file as object, multiple as array
-      const rawImages = Array.isArray(req.files.images)
-        ? req.files.images
-        : [req.files.images];
+      const rawImages = Array.isArray(req.files.images) ? req.files.images : [req.files.images];
       for (const file of rawImages) {
-        const name = await saveUploadedImage(file, newsDir, "news_extra");
-        images.push(name);
+        const url = await uploadToCloudinary(file.data, "news/extra");
+        images.push(url);
       }
     }
 
@@ -160,12 +116,12 @@ export const createNews = async (req, res) => {
       readTime: readTime || "",
       excerpt, content,
       featuredImageCaption: featuredImageCaption || "",
-      tags:                 parseArrayField(tags),
-      secondaryCategories:  parseArrayField(secondaryCategories),
+      tags:                parseArrayField(tags),
+      secondaryCategories: parseArrayField(secondaryCategories),
       image, authorImage, images,
-      tab:         tab      || "latest",
-      isFeatured:  isFeatured === "true" || isFeatured === true,
-      status:      status   || "active",
+      tab:          tab      || "latest",
+      isFeatured:   isFeatured === "true" || isFeatured === true,
+      status:       status   || "active",
       displayOrder: Number(displayOrder) || 0,
       source: "manual",
     });
@@ -185,75 +141,51 @@ export const updateNews = async (req, res) => {
     if (!existing) return res.status(404).json({ success: false, message: "News not found" });
 
     const updates = { ...req.body };
-    const newsDir    = path.join(__dirname, "../uploads/news");
-    const authorsDir = path.join(__dirname, "../uploads/news/authors");
 
-    // ── Parse array fields ──────────────────────────────
     if (updates.tags)                updates.tags                = parseArrayField(updates.tags);
     if (updates.secondaryCategories) updates.secondaryCategories = parseArrayField(updates.secondaryCategories);
 
-    // ── Boolean ─────────────────────────────────────────
     if (updates.isFeatured !== undefined) {
       updates.isFeatured = updates.isFeatured === "true" || updates.isFeatured === true;
     }
 
-    // ── Primary image ────────────────────────────────────
     if (req.files?.image) {
-      if (existing.image && !existing.image.startsWith("http")) {
-        deleteLocalFile(path.join(newsDir, existing.image));
-      }
-      updates.image = await saveUploadedImage(req.files.image, newsDir, "news");
+      await deleteFromCloudinary(existing.image);
+      updates.image = await uploadToCloudinary(req.files.image.data, "news");
     } else if (updates.removeImage === "true") {
-      if (existing.image && !existing.image.startsWith("http")) {
-        deleteLocalFile(path.join(newsDir, existing.image));
-      }
+      await deleteFromCloudinary(existing.image);
       updates.image = null;
     }
     delete updates.removeImage;
 
-    // ── Author image ─────────────────────────────────────
     if (req.files?.authorImage) {
-      if (existing.authorImage && !existing.authorImage.startsWith("http")) {
-        deleteLocalFile(path.join(authorsDir, existing.authorImage));
-      }
-      updates.authorImage = await saveUploadedImage(req.files.authorImage, authorsDir, "author");
+      await deleteFromCloudinary(existing.authorImage);
+      updates.authorImage = await uploadToCloudinary(req.files.authorImage.data, "news/authors");
     } else if (updates.removeAuthorImage === "true") {
-      if (existing.authorImage && !existing.authorImage.startsWith("http")) {
-        deleteLocalFile(path.join(authorsDir, existing.authorImage));
-      }
+      await deleteFromCloudinary(existing.authorImage);
       updates.authorImage = null;
     }
     delete updates.removeAuthorImage;
 
-    // ── Additional images ────────────────────────────────
-    // removeImages: JSON array of filenames to delete
     if (updates.removeImages) {
       const toRemove = parseArrayField(updates.removeImages);
       const remaining = (existing.images || []).filter((img) => !toRemove.includes(img));
-      for (const img of toRemove) {
-        if (!img.startsWith("http")) deleteLocalFile(path.join(newsDir, img));
-      }
+      for (const img of toRemove) await deleteFromCloudinary(img);
       updates.images = remaining;
     } else {
       updates.images = existing.images || [];
     }
     delete updates.removeImages;
 
-    // New additional images
     if (req.files?.images) {
-      const rawImages = Array.isArray(req.files.images)
-        ? req.files.images
-        : [req.files.images];
+      const rawImages = Array.isArray(req.files.images) ? req.files.images : [req.files.images];
       for (const file of rawImages) {
-        const name = await saveUploadedImage(file, newsDir, "news_extra");
-        updates.images.push(name);
+        const url = await uploadToCloudinary(file.data, "news/extra");
+        updates.images.push(url);
       }
     }
 
-    const news = await News.findByIdAndUpdate(req.params.id, updates, {
-      new: true, runValidators: true,
-    });
-
+    const news = await News.findByIdAndUpdate(req.params.id, updates, { new: true, runValidators: true });
     res.json({ success: true, data: news, message: "News updated successfully" });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message || "Server error" });
@@ -268,19 +200,9 @@ export const deleteNews = async (req, res) => {
     const news = await News.findById(req.params.id);
     if (!news) return res.status(404).json({ success: false, message: "News not found" });
 
-    const newsDir    = path.join(__dirname, "../uploads/news");
-    const authorsDir = path.join(__dirname, "../uploads/news/authors");
-
-    if (news.image && !news.image.startsWith("http")) {
-      deleteLocalFile(path.join(newsDir, news.image));
-    }
-    if (news.authorImage && !news.authorImage.startsWith("http")) {
-      deleteLocalFile(path.join(authorsDir, news.authorImage));
-    }
-    // Delete additional images
-    for (const img of news.images || []) {
-      if (!img.startsWith("http")) deleteLocalFile(path.join(newsDir, img));
-    }
+    await deleteFromCloudinary(news.image);
+    await deleteFromCloudinary(news.authorImage);
+    for (const img of news.images || []) await deleteFromCloudinary(img);
 
     await News.findByIdAndDelete(req.params.id);
     res.json({ success: true, message: "News deleted successfully" });
@@ -305,7 +227,7 @@ export const toggleNewsStatus = async (req, res) => {
 };
 
 /* ─────────────────────────────────────────────────────────
-   CSV / EXCEL IMPORT
+   CSV / EXCEL IMPORT — Buffer se directly parse (disk pe kuch save nahi)
 ───────────────────────────────────────────────────────── */
 export const uploadNewsFile = async (req, res) => {
   try {
@@ -320,36 +242,35 @@ export const uploadNewsFile = async (req, res) => {
       return res.status(400).json({ success: false, message: "Only .csv, .xlsx, .xls files are allowed" });
     }
 
-    ensureDir(path.join(__dirname, "../uploads/news-imports"));
-    const tempFileName = `import_${Date.now()}${ext}`;
-    const tempPath     = path.join(__dirname, "../uploads/news-imports", tempFileName);
-    await file.mv(tempPath);
-
+    // ── Disk pe save nahi — buffer se directly parse ──
     let rows = [];
 
     if (ext === ".csv") {
-      const content = fs.readFileSync(tempPath, "utf-8");
+      // Buffer ko string mein convert karo
+      const content = file.data.toString("utf-8");
       const lines   = content.split("\n").filter((l) => l.trim());
       const headers = lines[0]
         .split(",")
         .map((h) => h.trim().replace(/"/g, "").toLowerCase().replace(/[^a-z]/g, ""));
 
       rows = lines.slice(1).map((line) => {
-        const values  = [];
-        let current   = "";
-        let inQuotes  = false;
+        const values = [];
+        let current  = "";
+        let inQuotes = false;
         for (const char of line) {
-          if (char === '"')           { inQuotes = !inQuotes; }
+          if (char === '"')                   { inQuotes = !inQuotes; }
           else if (char === "," && !inQuotes) { values.push(current.trim()); current = ""; }
-          else                        { current += char; }
+          else                                { current += char; }
         }
         values.push(current.trim());
         const obj = {};
         headers.forEach((h, i) => { obj[h] = (values[i] || "").replace(/"/g, ""); });
         return obj;
       });
+
     } else {
-      const workbook = XLSX.readFile(tempPath);
+      // XLSX — buffer se directly read karo (file.data already Buffer hai)
+      const workbook = XLSX.read(file.data, { type: "buffer" });
       const rawRows  = XLSX.utils.sheet_to_json(
         workbook.Sheets[workbook.SheetNames[0]],
         { defval: "", raw: false }
@@ -358,7 +279,6 @@ export const uploadNewsFile = async (req, res) => {
     }
 
     if (!rows.length) {
-      fs.unlinkSync(tempPath);
       return res.status(400).json({ success: false, message: "File is empty or has no valid rows" });
     }
 
@@ -384,15 +304,10 @@ export const uploadNewsFile = async (req, res) => {
       const status     = (row.status     || "active").toString().toLowerCase().trim();
       const isFeatured = (row.isfeatured || "false").toString().toLowerCase().trim();
 
-      // Primary image: URL from CSV
-      const imageVal = (row.image || "").toString().trim();
-
-      // Author image: URL from CSV
+      const imageVal       = (row.image       || "").toString().trim();
       const authorImageVal = (row.authorimage || "").toString().trim();
-
-      // Additional images: pipe-separated URLs  e.g. "https://a.com/1.jpg|https://b.com/2.jpg"
-      const imagesRaw = (row.images || "").toString().trim();
-      const images = imagesRaw
+      const imagesRaw      = (row.images      || "").toString().trim();
+      const images         = imagesRaw
         ? imagesRaw.split("|").map((s) => s.trim()).filter(Boolean)
         : [];
 
@@ -400,7 +315,9 @@ export const uploadNewsFile = async (req, res) => {
       const tags    = tagsRaw ? tagsRaw.split(",").map((s) => s.trim()).filter(Boolean) : [];
 
       const secRaw = (row.secondarycategories || "").toString().trim();
-      const secondaryCategories = secRaw ? secRaw.split(",").map((s) => s.trim()).filter(Boolean) : [];
+      const secondaryCategories = secRaw
+        ? secRaw.split(",").map((s) => s.trim()).filter(Boolean)
+        : [];
 
       newsToInsert.push({
         title,
@@ -419,7 +336,7 @@ export const uploadNewsFile = async (req, res) => {
         status:       status === "active" ? "active" : "inactive",
         displayOrder: parseInt(row.displayorder || 0) || 0,
         source:       ext === ".csv" ? "csv" : "excel",
-        image:        imageVal || null,
+        image:        imageVal       || null,
         authorImage:  authorImageVal || null,
         images,
       });
@@ -430,8 +347,6 @@ export const uploadNewsFile = async (req, res) => {
       const result = await News.insertMany(newsToInsert, { ordered: false });
       insertedCount = result.length;
     }
-
-    fs.unlinkSync(tempPath);
 
     res.json({
       success: true,
@@ -450,23 +365,6 @@ export const uploadNewsFile = async (req, res) => {
 };
 
 /* ─────────────────────────────────────────────────────────
-   DOWNLOAD SAMPLE TEMPLATE
-───────────────────────────────────────────────────────── */
-export const downloadSampleTemplate = async (req, res) => {
-  try {
-    const templatePath = path.join(
-      __dirname, "../uploads/news-imports/sample_news_template.csv"
-    );
-    if (!fs.existsSync(templatePath)) {
-      return res.status(404).json({ success: false, message: "Template not found" });
-    }
-    res.download(templatePath, "sample_news_template.csv");
-  } catch {
-    res.status(500).json({ success: false, message: "Server error" });
-  }
-};
-
-/* ─────────────────────────────────────────────────────────
    PUBLIC NEWS (Frontend Website)
 ───────────────────────────────────────────────────────── */
 export const getPublicNews = async (req, res) => {
@@ -481,19 +379,11 @@ export const getPublicNews = async (req, res) => {
       .sort({ displayOrder: 1, date: -1 })
       .skip((page - 1) * limit)
       .limit(Number(limit))
-      .select(
-        "title category secondaryCategories author authorRole authorImage date readTime excerpt image images tab isFeatured tags commentCount"
-      );
+      .select("title category secondaryCategories author authorRole authorImage date readTime excerpt image images tab isFeatured tags commentCount");
 
     res.json({
-      success: true,
-      data: news,
-      pagination: {
-        total,
-        page:       Number(page),
-        limit:      Number(limit),
-        totalPages: Math.ceil(total / limit),
-      },
+      success: true, data: news,
+      pagination: { total, page: Number(page), limit: Number(limit), totalPages: Math.ceil(total / limit) },
     });
   } catch {
     res.status(500).json({ success: false, message: "Server error" });

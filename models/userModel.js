@@ -20,11 +20,12 @@ const userSchema = new mongoose.Schema(
       trim: true,
       default: ""
     },
-    password: {
-      type: String,
-      required: [true, "Password is required"],
-      minlength: [6, "Password must be at least 6 characters"]
-    },
+ password: {
+  type: String,
+  required: false,
+  default: null,
+  minlength: [6, "Password must be at least 6 characters"]
+},
     googleId: {
       type: String,
       unique: true,
@@ -48,6 +49,12 @@ const userSchema = new mongoose.Schema(
       type: Date,
       select: false
     },
+     username: { type: String, trim: true, default: "" },
+    phone:    { type: String, trim: true, default: "" },
+    location: { type: String, trim: true, default: "" },
+    bio:      { type: String, trim: true, default: "" },
+    avatar:   { type: String,             default: "" },
+
   },
   { timestamps: true }
 );

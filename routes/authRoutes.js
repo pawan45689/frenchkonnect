@@ -1,40 +1,33 @@
 import express from "express";
-import { 
-  signupController, 
-  loginController,
-  googleAuthController, // ✅ NEW - Google Auth
-  sendPasswordResetOTP,
-  verifyResetOTP,
-  resetPasswordController,
-  logoutController
-} from "../controllers/authController.js";
+import { protect, adminOnly } from "../middleware/authMiddleware.js";
 import {
-  getAllUsers,
-  getUserById,
-  deleteUser,
-  updateUser,
-  getUserStats,
+  signupController, loginController, googleAuthController,
+  sendPasswordResetOTP, verifyResetOTP, resetPasswordController,
+  logoutController, getAllUsers, getUserById, deleteUser,
+  updateUser, getUserStats,getCurrentUser, updateProfileController,   // ← NEW
+  uploadAvatarController,
 } from "../controllers/authController.js";
 
 const router = express.Router();
 
-// Auth routes
-router.post("/signup", signupController);
-router.post("/login", loginController);
-
-// ✅ NEW - Google Authentication Route
-router.post("/google-auth", googleAuthController);
-
-// Password reset routes (OTP-based)
+// ── Public Routes ──────────────────────────────────────────────
+router.post("/signup",          signupController);
+router.post("/login",           loginController);
+router.post("/google-auth",     googleAuthController);
 router.post("/forgot-password", sendPasswordResetOTP);
-router.post("/verify-otp", verifyResetOTP);
-router.post("/reset-password", resetPasswordController);
-router.get("/all", getAllUsers);
-router.get("/stats", getUserStats);
-router.get("/:id", getUserById);
-router.put("/:id", updateUser);
-router.delete("/:id", deleteUser);
-// Logout
-router.post("/logout", logoutController);
+router.post("/verify-otp",      verifyResetOTP);
+router.post("/reset-password",  resetPasswordController);
+router.post("/logout",          logoutController);
+
+// ── Admin Routes — specific PEHLE, /:id BAAD MEIN ─────────────
+router.get("/all",   protect, adminOnly, getAllUsers);
+router.get("/stats", protect, adminOnly, getUserStats);
+router.get("/me",    protect, getCurrentUser);  
+router.put( "/update-profile", protect, updateProfileController);  // ← NEW
+router.post("/upload-avatar",  protect, uploadAvatarController); 
+// /:id routes — SABSE BAAD MEIN
+router.get("/:id",    protect, adminOnly, getUserById);
+router.put("/:id",    protect, adminOnly, updateUser);
+router.delete("/:id", protect, adminOnly, deleteUser);
 
 export default router;

@@ -1,39 +1,28 @@
 import express from "express";
 import {
-  getAllQuestions,
-  getQuestionById,
-  createQuestion,
-  updateQuestion,
-  deleteQuestion,
-  toggleStatus,
-  getExamQuestions,
-  submitExam,
-  getStats,
+  getAllQuestions, getQuestionById, createQuestion,
+  updateQuestion, deleteQuestion, toggleStatus,
+  getExamQuestions, submitExam, getStats,
 } from "../controllers/questionController.js";
+import { protect, adminOnly } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
-// ─── PUBLIC ROUTES ────────────────────────────────────────────
-// GET  /api/v1/questions/exam?level=A1&category=Grammar
-router.get("/exam", getExamQuestions);
-
-// POST /api/v1/questions/submit
+// ─── PUBLIC ROUTES (token nahi chahiye) ───────────────────────
+router.get("/exam",    getExamQuestions);
 router.post("/submit", submitExam);
 
-// ─── ADMIN ROUTES ─────────────────────────────────────────────
-// GET  /api/v1/questions/stats
-router.get("/stats", getStats);
+// ─── ADMIN ROUTES (protect + adminOnly) ───────────────────────
+router.get("/stats",   protect, adminOnly, getStats);
+router.route("/")
+  .get(protect, adminOnly, getAllQuestions)
+  .post(protect, adminOnly, createQuestion);
 
-// GET  /api/v1/questions
-// POST /api/v1/questions
-router.route("/").get(getAllQuestions).post(createQuestion);
+router.route("/:id")
+  .get(protect, adminOnly, getQuestionById)
+  .put(protect, adminOnly, updateQuestion)
+  .delete(protect, adminOnly, deleteQuestion);
 
-// GET    /api/v1/questions/:id
-// PUT    /api/v1/questions/:id
-// DELETE /api/v1/questions/:id
-router.route("/:id").get(getQuestionById).put(updateQuestion).delete(deleteQuestion);
-
-// PATCH /api/v1/questions/:id/toggle
-router.patch("/:id/toggle", toggleStatus);
+router.patch("/:id/toggle", protect, adminOnly, toggleStatus);
 
 export default router;

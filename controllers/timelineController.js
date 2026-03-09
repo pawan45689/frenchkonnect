@@ -1,31 +1,8 @@
 import Timeline from "../models/Timeline.js";
-import path from "path";
-import fs from "fs";
-import { fileURLToPath } from "url";
+import { uploadToCloudinary, deleteFromCloudinary } from "../utils/cloudinary.js";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname  = path.dirname(__filename);
-
-const UPLOAD_DIR = path.join(__dirname, "../uploads/timelines");
-if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
-
-/* ── Helper: icon image save karo ── */
-const saveIcon = (file) => {
-  const ext      = path.extname(file.name);
-  const fileName = `timeline_${Date.now()}${ext}`;
-  const filePath = path.join(UPLOAD_DIR, fileName);
-  file.mv(filePath);
-  return `uploads/timelines/${fileName}`;
-};
-
-/* ── Helper: purani icon image delete karo ── */
-const deleteIcon = (iconPath) => {
-  if (!iconPath) return;
-  // Sirf file paths delete karo, text icons (emoji/class) nahi
-  if (!iconPath.startsWith("uploads/")) return;
-  const full = path.join(__dirname, "..", iconPath);
-  if (fs.existsSync(full)) fs.unlinkSync(full);
-};
+/* ── Helper: text icon hai ya Cloudinary URL ── */
+const isCloudinaryUrl = (icon) => icon?.includes("cloudinary.com");
 
 /* ══════════════════════════════════════════════════════════════
    PUBLIC — GET all active timelines (sorted by order)
@@ -85,7 +62,7 @@ export const createTimeline = async (req, res) => {
     /* Icon logic: file upload > text icon */
     let iconValue = icon?.trim() || "";
     if (req.files?.iconImage) {
-      iconValue = saveIcon(req.files.iconImage);
+      iconValue = await uploadToCloudinary(req.files.iconImage.data, "timelines");
     }
 
     const timeline = await Timeline.create({
@@ -120,14 +97,14 @@ export const updateTimeline = async (req, res) => {
     /* Icon logic */
     let iconValue = timeline.icon || "";
     if (removeIcon === "true") {
-      deleteIcon(timeline.icon);
+      await deleteFromCloudinary(timeline.icon);
       iconValue = "";
     }
     if (req.files?.iconImage) {
-      deleteIcon(timeline.icon);
-      iconValue = saveIcon(req.files.iconImage);
+      await deleteFromCloudinary(timeline.icon);
+      iconValue = await uploadToCloudinary(req.files.iconImage.data, "timelines");
     } else if (icon !== undefined) {
-      deleteIcon(timeline.icon); // purani image delete karo agar text icon set ho raha hai
+      if (isCloudinaryUrl(timeline.icon)) await deleteFromCloudinary(timeline.icon);
       iconValue = icon.trim();
     }
 
@@ -175,8 +152,7 @@ export const deleteTimeline = async (req, res) => {
     const timeline = await Timeline.findByIdAndDelete(req.params.id);
     if (!timeline) return res.status(404).json({ success: false, message: "Timeline not found" });
 
-    /* Icon image bhi delete karo */
-    deleteIcon(timeline.icon);
+    await deleteFromCloudinary(timeline.icon);
 
     res.status(200).json({ success: true, message: "Timeline deleted" });
   } catch (err) {

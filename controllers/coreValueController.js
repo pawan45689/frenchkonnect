@@ -1,31 +1,8 @@
 import CoreValue from "../models/CoreValue.js";
-import path from "path";
-import fs from "fs";
-import { fileURLToPath } from "url";
+import { uploadToCloudinary, deleteFromCloudinary } from "../utils/cloudinary.js";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname  = path.dirname(__filename);
-
-const UPLOAD_DIR = path.join(__dirname, "../uploads/core-values");
-if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
-
-/* ── Helper: icon image save karo ── */
-const saveIcon = (file) => {
-  const ext      = path.extname(file.name);
-  const fileName = `core_value_${Date.now()}${ext}`;
-  const filePath = path.join(UPLOAD_DIR, fileName);
-  file.mv(filePath);
-  return `uploads/core-values/${fileName}`;
-};
-
-/* ── Helper: purani icon image delete karo ── */
-const deleteIcon = (iconPath) => {
-  if (!iconPath) return;
-  // Sirf file paths delete karo, text icons (emoji/class) nahi
-  if (!iconPath.startsWith("uploads/")) return;
-  const full = path.join(__dirname, "..", iconPath);
-  if (fs.existsSync(full)) fs.unlinkSync(full);
-};
+/* ── Helper: text icon hai ya Cloudinary URL ── */
+const isCloudinaryUrl = (icon) => icon?.includes("cloudinary.com");
 
 /* ══════════════════════════════════════════════════════════════
    PUBLIC — GET all active core values
@@ -85,7 +62,7 @@ export const createCoreValue = async (req, res) => {
     /* Icon logic: file upload > text icon */
     let iconValue = icon?.trim() || "";
     if (req.files?.iconImage) {
-      iconValue = saveIcon(req.files.iconImage);
+      iconValue = await uploadToCloudinary(req.files.iconImage.data, "core-values");
     }
 
     if (!iconValue) {
@@ -124,14 +101,14 @@ export const updateCoreValue = async (req, res) => {
     /* Icon logic */
     let iconValue = value.icon;
     if (removeIcon === "true") {
-      deleteIcon(value.icon);
+      await deleteFromCloudinary(value.icon);
       iconValue = "";
     }
     if (req.files?.iconImage) {
-      deleteIcon(value.icon);
-      iconValue = saveIcon(req.files.iconImage);
+      await deleteFromCloudinary(value.icon);
+      iconValue = await uploadToCloudinary(req.files.iconImage.data, "core-values");
     } else if (icon !== undefined) {
-      deleteIcon(value.icon); // purani image delete karo agar text icon set ho raha hai
+      if (isCloudinaryUrl(value.icon)) await deleteFromCloudinary(value.icon);
       iconValue = icon.trim();
     }
 
@@ -179,8 +156,7 @@ export const deleteCoreValue = async (req, res) => {
     const value = await CoreValue.findByIdAndDelete(req.params.id);
     if (!value) return res.status(404).json({ success: false, message: "Core value not found" });
 
-    /* Icon image bhi delete karo */
-    deleteIcon(value.icon);
+    await deleteFromCloudinary(value.icon);
 
     res.status(200).json({ success: true, message: "Core value deleted" });
   } catch (err) {

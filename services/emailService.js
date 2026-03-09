@@ -5,14 +5,32 @@ import config from "../config/config.js";
 const transporter = nodemailer.createTransport({
   host: config.EMAIL_HOST,
   port: config.EMAIL_PORT,
-  secure: false, // true for 465, false for other ports
+  secure: false,
   auth: {
     user: config.EMAIL_USER,
     pass: config.EMAIL_PASS,
   },
 });
 
-// Send OTP email
+// ── Generic send email (registration confirm/cancel ke liye) ─
+export const sendEmail = async ({ to, subject, html }) => {
+  try {
+    const mailOptions = {
+      from: `"${config.APP_NAME}" <${config.EMAIL_USER}>`,
+      to,
+      subject,
+      html,
+    };
+    const info = await transporter.sendMail(mailOptions);
+    console.log("✅ Email sent:", info.messageId);
+    return { success: true, messageId: info.messageId };
+  } catch (error) {
+    console.error("❌ Email sending failed:", error);
+    throw new Error("Failed to send email");
+  }
+};
+
+// ── OTP email (existing — kuch nahi badla) ───────────────────
 export const sendOTPEmail = async (email, otp, fullName) => {
   try {
     const mailOptions = {
@@ -42,17 +60,14 @@ export const sendOTPEmail = async (email, otp, fullName) => {
             <div class="content">
               <p>Hello <strong>${fullName}</strong>,</p>
               <p>We received a request to reset your password. Use the OTP below to proceed:</p>
-              
               <div class="otp-box">
                 <p style="margin: 0; font-size: 14px; color: #666;">Your OTP Code</p>
                 <p class="otp-code">${otp}</p>
                 <p style="margin: 0; font-size: 12px; color: #999;">Valid for 10 minutes</p>
               </div>
-
               <div class="warning">
                 <strong>⚠️ Security Note:</strong> If you didn't request this, please ignore this email and your password will remain unchanged.
               </div>
-
               <p>For your security:</p>
               <ul>
                 <li>Never share this OTP with anyone</li>
@@ -68,7 +83,6 @@ export const sendOTPEmail = async (email, otp, fullName) => {
         </html>
       `,
     };
-
     const info = await transporter.sendMail(mailOptions);
     console.log("✅ OTP Email sent:", info.messageId);
     return { success: true, messageId: info.messageId };

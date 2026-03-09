@@ -7,25 +7,29 @@ import {
   deleteNews,
   toggleNewsStatus,
   uploadNewsFile,
-  downloadSampleTemplate,
+
   getPublicNews,
   getPublicNewsById,
 } from "../controllers/newsController.js";
+import { protect, adminOnly } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
-// ── Public Routes (Website Frontend) ──────────────────────────────
-router.get("/public",          getPublicNews);        // list with pagination
-router.get("/public/:id",      getPublicNewsById);    // single article detail
+// ── Public Routes ──────────────────────────────────────────────────
+router.get("/public",          getPublicNews);
+router.get("/public/:id",      getPublicNewsById);
 
 // ── Admin Routes ───────────────────────────────────────────────────
-router.get("/",                getAllNews);
-router.get("/sample-template", downloadSampleTemplate);
-router.get("/:id",             getNewsById);
-router.post("/",               createNews);
-router.post("/upload-file",    uploadNewsFile);
-router.put("/:id",             updateNews);
-router.patch("/:id/toggle",    toggleNewsStatus);
-router.delete("/:id",          deleteNews);
+router.get("/",                protect, adminOnly, getAllNews);
+
+
+router.post("/upload-file",    protect, adminOnly, uploadNewsFile);
+router.post("/",               protect, adminOnly, createNews);
+
+// /:id wale routes BAAD mein
+router.get("/:id",             protect, adminOnly, getNewsById);
+router.put("/:id",             protect, adminOnly, updateNews);
+router.patch("/:id/toggle",    protect, adminOnly, toggleNewsStatus);
+router.delete("/:id",          protect, adminOnly, deleteNews);
 
 export default router;
