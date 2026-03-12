@@ -4,20 +4,20 @@ import config from "../config/config.js";
 
 export const protect = async (req, res, next) => {
   try {
-    /* Token lo — Authorization: Bearer <token> */
+    /* Get token — Authorization: Bearer <token> */
     const token = req.headers.authorization?.split(" ")[1];
 
     if (!token) {
       return res.status(401).json({
         success: false,
-        message: "Login karo pehle — token nahi mila",
+        message: "Please login first — no token found",
       });
     }
 
-    /* Verify — tumhara JWT_SECRET use hoga */
+    /* Verify — your JWT_SECRET will be used */
     const decoded = JWT.verify(token, config.JWT_SECRET);
 
-    /* User fetch karo — password chhod ke */
+    /* Fetch user — excluding password */
     const user = await userModel
       .findById(decoded._id)
       .select("-password -resetPasswordOTP -resetPasswordOTPExpire");
@@ -29,18 +29,18 @@ export const protect = async (req, res, next) => {
       });
     }
 
-    req.user = user; // ← ab controller mein req.user._id milega
+    req.user = user; // ← now req.user._id will be available in controller
     next();
 
   } catch (error) {
     return res.status(401).json({
       success: false,
-      message: "Invalid ya expired token — dobara login karo",
+      message: "Invalid or expired token — please login again",
     });
   }
 };
 
-/* Admin only routes ke liye */
+/* For admin only routes */
 export const adminOnly = (req, res, next) => {
   if (req.user?.role !== "admin") {
     return res.status(403).json({

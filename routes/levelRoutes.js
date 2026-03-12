@@ -84,3 +84,21 @@ router.patch ("/admin/lessons/:lessonId/toggle",         toggleLessonStatus);
 router.delete("/admin/lessons/:lessonId",                deleteLesson);
 
 export default router;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
