@@ -2,7 +2,7 @@ import mongoose from 'mongoose';
 
 const dropIndex = async () => {
   try {
-    await mongoose.connect('mongodb+srv://pawan:pawan@cluster0.ycluh.mongodb.net/college?retryWrites=true&w=majority&appName=Cluster0');
+   await mongoose.connect(mongoose.connect(process.env.MONGO_URL));
     
     console.log(' Connected to MongoDB');
     
