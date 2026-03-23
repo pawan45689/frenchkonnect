@@ -1,13 +1,11 @@
 import mongoose from "mongoose";
 
-// ── VIDEO ──────────────────────────────────────────
 const videoBlockSchema = new mongoose.Schema({
   videoUrl:         { type: String, default: "" },
   videoTitle:       { type: String, default: "" },
   videoDescription: { type: String, default: "" },
 }, { _id: false });
 
-// ── VOCAB ──────────────────────────────────────────
 const vocabWordSchema = new mongoose.Schema({
   frenchWord:      { type: String, default: "" },
   englishMeaning:  { type: String, default: "" },
@@ -19,7 +17,6 @@ const vocabBlockSchema = new mongoose.Schema({
   words: { type: [vocabWordSchema], default: [] },
 }, { _id: false });
 
-// ── FLASHCARD ──────────────────────────────────────
 const flashcardItemSchema = new mongoose.Schema({
   front: { type: String, default: "" },
   back:  { type: String, default: "" },
@@ -30,7 +27,6 @@ const flashcardBlockSchema = new mongoose.Schema({
   cards: { type: [flashcardItemSchema], default: [] },
 }, { _id: false });
 
-// ── GRAMMAR ────────────────────────────────────────
 const grammarBlockSchema = new mongoose.Schema({
   ruleTitle:   { type: String, default: "" },
   explanation: { type: String, default: "" },
@@ -40,7 +36,6 @@ const grammarBlockSchema = new mongoose.Schema({
   }],
 }, { _id: false });
 
-// ── LISTENING ──────────────────────────────────────
 const listeningQuestionSchema = new mongoose.Schema({
   question:      { type: String, default: "" },
   options:       [{ type: String }],
@@ -53,17 +48,16 @@ const listeningBlockSchema = new mongoose.Schema({
   questions:  { type: [listeningQuestionSchema], default: [] },
 }, { _id: false });
 
-// ── SPEAKING ───────────────────────────────────────
 const speakingBlockSchema = new mongoose.Schema({
   promptText:      { type: String, default: "" },
   modelAnswer:     { type: String, default: "" },
   difficultyLevel: { type: String, enum: ["easy", "medium", "hard"], default: "easy" },
 }, { _id: false });
 
-// ── QUIZ ───────────────────────────────────────────
+// ✅ UPDATED: only mcq
 const quizQuestionSchema = new mongoose.Schema({
   questionText:  { type: String, default: "" },
-  questionType:  { type: String, enum: ["mcq", "fill_blank", "match"], default: "mcq" },
+  questionType:  { type: String, enum: ["mcq"], default: "mcq" },
   options:       [{ type: String }],
   correctAnswer: { type: String, default: "" },
 }, { _id: false });
@@ -72,11 +66,36 @@ const quizBlockSchema = new mongoose.Schema({
   questions: { type: [quizQuestionSchema], default: [] },
 }, { _id: false });
 
-// ── CONTENT BLOCK (master) ─────────────────────────
+// ✅ NEW: Reading block
+const readingQuestionSchema = new mongoose.Schema({
+  questionText:  { type: String, default: "" },
+  options:       [{ type: String }],
+  correctAnswer: { type: String, default: "" },
+}, { _id: false });
+
+const readingBlockSchema = new mongoose.Schema({
+  passageTitle: { type: String, default: "" },
+  passageText:  { type: String, default: "" },
+  questions:    { type: [readingQuestionSchema], default: [] },
+}, { _id: false });
+
+// ✅ NEW: Writing block
+const writingQuestionSchema = new mongoose.Schema({
+  questionText: { type: String, default: "" },
+  sampleAnswer: { type: String, default: "" },
+  wordLimit:    { type: Number, default: 100 },
+}, { _id: false });
+
+const writingBlockSchema = new mongoose.Schema({
+  topicTitle:       { type: String, default: "" },
+  topicDescription: { type: String, default: "" },
+  questions:        { type: [writingQuestionSchema], default: [] },
+}, { _id: false });
+
 const contentBlockSchema = new mongoose.Schema({
   type: {
     type: String,
-    enum: ["video", "vocab", "flashcard", "grammar", "listening", "speaking", "quiz"],
+    enum: ["video", "vocab", "flashcard", "grammar", "listening", "speaking", "quiz", "reading", "writing"],
     required: true,
   },
   blockOrder:    { type: Number, default: 1 },
@@ -87,9 +106,10 @@ const contentBlockSchema = new mongoose.Schema({
   listeningData: { type: listeningBlockSchema, default: null },
   speakingData:  { type: speakingBlockSchema,  default: null },
   quizData:      { type: quizBlockSchema,      default: null },
+  readingData:   { type: readingBlockSchema,   default: null },
+  writingData:   { type: writingBlockSchema,   default: null },
 }, { _id: false });
 
-// ── MAIN LESSON SCHEMA ─────────────────────────────
 const lessonSchema = new mongoose.Schema(
   {
     level_id: {
@@ -116,27 +136,11 @@ const lessonSchema = new mongoose.Schema(
       enum: ["video", "flashcard", "exercise", "speaking", "quiz", "mixed"],
       required: true,
     },
-    xpPoints: {
-      type: Number,
-      default: 50,
-    },
-    displayOrder: {
-      type: Number,
-      required: true,
-      default: 1,
-    },
-    isLocked: {
-      type: Boolean,
-      default: true,
-    },
-    isActive: {
-      type: Boolean,
-      default: true,
-    },
-    contentBlocks: {
-      type: [contentBlockSchema],
-      default: [],
-    },
+    xpPoints:     { type: Number, default: 50 },
+    displayOrder: { type: Number, required: true, default: 1 },
+    isLocked:     { type: Boolean, default: true },
+    isActive:     { type: Boolean, default: true },
+    contentBlocks: { type: [contentBlockSchema], default: [] },
   },
   { timestamps: true }
 );

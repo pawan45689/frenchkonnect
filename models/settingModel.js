@@ -2,6 +2,11 @@ import mongoose from "mongoose";
 
 const settingSchema = new mongoose.Schema(
   {
+    siteName: {
+      type: String,
+      default: "",
+      trim: true,
+    },
     logo: {
       type: String,
       default: ""
@@ -25,7 +30,6 @@ const settingSchema = new mongoose.Schema(
       required: true,
       trim: true
     },
-    // ✅ Social Media Fields
     facebook: {
       type: String,
       default: "",

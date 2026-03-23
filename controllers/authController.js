@@ -733,24 +733,21 @@ export const getCurrentUser = async (req, res) => {
 
 // ==========================================
 // UPDATE PROFILE (/auth/update-profile)
-// ✅ UPDATED: Cloudinary se purani image delete karta hai
-// User aur Admin dono ke liye kaam karta hai
 // ==========================================
 export const updateProfileController = async (req, res) => {
   try {
-    const { name, username, email, phone, location, bio, avatar, removeAvatar } = req.body;
+    const { name, username, email, mobile, phone, location, bio, avatar, removeAvatar } = req.body;
 
     const user = await userModel.findById(req.user._id);
     if (!user) return res.status(404).json({ success: false, message: "User not found" });
 
-    // Avatar handle — removeAvatar true ho to Cloudinary se delete karo
+    // Avatar handle
     if (removeAvatar === true || removeAvatar === "true") {
       if (user.avatar && user.avatar.startsWith("http")) {
         try {
           await deleteFromCloudinary(user.avatar);
         } catch (err) {
           console.error("Cloudinary delete error:", err);
-          // Delete fail ho to bhi aage badho
         }
       }
       user.avatar = "";
@@ -758,15 +755,13 @@ export const updateProfileController = async (req, res) => {
       user.avatar = avatar;
     }
 
-    // fullName — sirf tab update kro jab non-empty ho
-    if (name !== undefined && name.trim() !== "") user.fullName = name.trim();
-
+    if (name     !== undefined && name.trim() !== "") user.fullName = name.trim();
     if (username !== undefined) user.username = username;
+    if (mobile   !== undefined) user.mobile   = mobile;
     if (phone    !== undefined) user.phone    = phone;
     if (location !== undefined) user.location = location;
     if (bio      !== undefined) user.bio      = bio;
 
-    // Email change
     if (email && email.trim() !== "" && email !== user.email) {
       const exists = await userModel.findOne({ email });
       if (exists) return res.status(422).json({ success: false, message: "Email already in use" });

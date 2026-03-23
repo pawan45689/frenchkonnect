@@ -20,15 +20,20 @@ import eventRoutes from "./routes/eventRoutes.js";
 import registrationRoutes from "./routes/registrationRoutes.js";
 import examAttemptRoutes from "./routes/examAttemptRoutes.js";
 import successStoryRoutes from "./routes/successStoryRoutes.js";
-// ── NEW: Level / Section / Lesson ────────────────────────────
 import levelRoutes from "./routes/levelRoutes.js";
-// ─────────────────────────────────────────────────────────────
-
-
-
+import planRoutes  from "./routes/planRoutes.js";
+import promoRoutes from "./routes/promoRoutes.js";
+import demoVideoRoutes from "./routes/demoVideoRoutes.js";
+import examRoutes from "./routes/examRoutes.js";
+import feedPostRoutes  from "./routes/feedPostRoutes.js";
+import liveClassRoutes from "./routes/liveClassRoutes.js";
+import dashboardRoutes  from "./routes/dashboardRoutes.js";
+import leaderboardRoutes from "./routes/leaderboardRoutes.js";
+import heroSectionRoutes from "./routes/heroSectionRoutes.js";
 const app = express();
 
 // ── Middleware ───────────────────────────────────────────────
+// app.use(cors());
 // app.use(cors());
 app.use(cors({
   origin: [
@@ -44,16 +49,18 @@ app.use(cors({
 }));
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
 app.use(express.json({ limit: "50mb" }));
-app.use(
+
+// ✅ express-fileupload — sample-papers ko exclude karo (multer handle karega)
+app.use((req, res, next) => {
+  if (req.path.includes("/sample-papers")) {
+    return next(); // ← multer handle karega
+  }
   fileUpload({
-    limits: { fileSize: 50 * 1024 * 1024 }, // 50MB
+    limits: { fileSize: 50 * 1024 * 1024 },
     abortOnLimit: true,
     responseOnLimit: "File size limit exceeded (Max 50MB)",
-    
-  })
-);
-
-
+  })(req, res, next);
+});
 
 // ── Database ─────────────────────────────────────────────────
 connectDB();
@@ -61,6 +68,7 @@ verifyEmailConfig();
 
 // ── Routes ───────────────────────────────────────────────────
 app.use("/api/v1/auth",             authRoutes);
+app.use("/api/v1/hero", heroSectionRoutes);
 app.use("/api/v1/contact",          contactRoutes);
 app.use("/api/v1/settings",         settingRoutes);
 app.use("/api/v1/testimonials",     testimonialRoutes);
@@ -70,28 +78,21 @@ app.use("/api/v1/news",             newsRoutes);
 app.use("/api/v1/questions",        questionRoutes);
 app.use("/api/v1", progressRoutes);
 app.use("/api/v1/about",            aboutRoutes);
-app.use("/api/v1",           audioRoutes);
-app.use("/api/v1", speakingRoutes);
-app.use("/api/v1", eventRoutes);
-app.use("/api/v1", registrationRoutes);
-app.use("/api/v1/exam-attempts", examAttemptRoutes);
-app.use("/api/v1", successStoryRoutes);
-// ─────────────────────────────────────────────────────────────
-
-
-// ── NEW: Level / Section / Lesson routes ─────────────────────
-app.use("/api/v1", levelRoutes);
-// All endpoints become:
-//   Public  → /api/v1/levels
-//             /api/v1/levels/:id/sections
-//             /api/v1/lessons/:id
-//   Admin   → /api/v1/admin/levels
-//             /api/v1/admin/levels/:id/sections
-//             /api/v1/admin/sections/:id
-//             /api/v1/admin/sections/:id/lessons
-//             /api/v1/admin/lessons/:id
-// ─────────────────────────────────────────────────────────────
-
+app.use("/api/v1",                  audioRoutes);
+app.use("/api/v1",                  speakingRoutes);
+app.use("/api/v1",                  eventRoutes);
+app.use("/api/v1",                  registrationRoutes);
+app.use("/api/v1/exam-attempts",    examAttemptRoutes);
+app.use("/api/v1",                  successStoryRoutes);
+app.use("/api/v1/plans",            planRoutes);
+app.use("/api/v1/promo",            promoRoutes);
+app.use("/api/v1",                  examRoutes);
+app.use("/api/v1/demo-video",       demoVideoRoutes);
+app.use("/api/v1",                  levelRoutes);
+app.use("/api/v1", feedPostRoutes);
+app.use("/api/v1", liveClassRoutes);
+app.use("/api/v1/leaderboard", leaderboardRoutes);
+app.use("/api/v1/dashboard",    dashboardRoutes);
 app.get("/", (req, res) => {
   res.json({ success: true, message: "Server Running", version: "1.0.0" });
 });

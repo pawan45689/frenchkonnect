@@ -22,10 +22,14 @@ const contactSchema = new mongoose.Schema(
       type: String,
       required: true,
       trim: true
+    },
+    isRead: {
+      type: Boolean,
+      default: false   // ✅ Naya field — by default unread
     }
   },
   { 
-    timestamps: true // createdAt and updatedAt
+    timestamps: true
   }
 );
 

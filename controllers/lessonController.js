@@ -1,5 +1,6 @@
 import Lesson from "../models/Lesson.js";
 import Section from "../models/Section.js";
+import User from "../models/userModel.js";
 
 /* ══════════════════════════════════════════════════════════════
    ADMIN — CREATE LESSON IN A SECTION
@@ -183,7 +184,7 @@ export const deleteLesson = async (req, res) => {
 /* ══════════════════════════════════════════════════════════════
    PUBLIC — USER OPENS A LESSON
    GET /api/v1/lessons/:lessonId
-   ✅ level_id aur section_id dono populate kiye — LevelHeader ke liye
+   ✅ lastAccessedLesson update hota hai jab user lesson kholta hai
 ══════════════════════════════════════════════════════════════ */
 export const getLessonForUser = async (req, res) => {
   try {
@@ -207,6 +208,13 @@ export const getLessonForUser = async (req, res) => {
           message: `Complete "${prev.lessonTitle}" first to unlock this lesson`,
         });
       }
+    }
+
+    // ✅ Update lastAccessedLesson on user — fire and forget, don't block response
+    if (req.user?._id) {
+      User.findByIdAndUpdate(req.user._id, {
+        lastAccessedLesson: lesson._id,
+      }).catch((err) => console.error("lastAccessedLesson update error:", err));
     }
 
     res.status(200).json({ success: true, data: lesson });

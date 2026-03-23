@@ -5,7 +5,7 @@ const userSchema = new mongoose.Schema(
     fullName: {
       type: String,
       required: [true, "Full name is required"],
-      trim: true
+      trim: true,
     },
     email: {
       type: String,
@@ -13,48 +13,85 @@ const userSchema = new mongoose.Schema(
       unique: true,
       lowercase: true,
       trim: true,
-      match: [/^\S+@\S+\.\S+$/, "Please enter a valid email"]
+      match: [/^\S+@\S+\.\S+$/, "Please enter a valid email"],
     },
     mobile: {
       type: String,
       trim: true,
-      default: ""
+      default: "",
     },
- password: {
-  type: String,
-  required: false,
-  default: null,
-  minlength: [6, "Password must be at least 6 characters"]
-},
+    password: {
+      type: String,
+      required: false,
+      default: null,
+      minlength: [6, "Password must be at least 6 characters"],
+    },
     googleId: {
       type: String,
       unique: true,
-      sparse: true // ✅ This stays - allows multiple undefined values
+      sparse: true,
     },
     role: {
       type: String,
       enum: ["user", "admin"],
-      default: "user"
+      default: "user",
     },
     isVerified: {
       type: Boolean,
-      default: false
+      default: false,
     },
-    // OTP fields
     resetPasswordOTP: {
       type: String,
-      select: false
+      select: false,
     },
     resetPasswordOTPExpire: {
       type: Date,
-      select: false
+      select: false,
     },
-     username: { type: String, trim: true, default: "" },
+    username: { type: String, trim: true, default: "" },
     phone:    { type: String, trim: true, default: "" },
     location: { type: String, trim: true, default: "" },
     bio:      { type: String, trim: true, default: "" },
     avatar:   { type: String,             default: "" },
 
+    currentLevel: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Level",
+      default: null,
+    },
+    streak: {
+      type: Number,
+      default: 0,
+    },
+    lastStreakDate: {
+      type: Date,
+      default: null,
+    },
+    totalXP: {
+      type: Number,
+      default: 0,
+    },
+    dailyXP: {
+      type: Number,
+      default: 0,
+    },
+    dailyXPDate: {
+      type: Date,
+      default: null,
+    },
+    dailyXPGoal: {
+      type: Number,
+      default: 500,
+    },
+    fluencyScore: {
+      type: Number,
+      default: 0,
+    },
+    lastAccessedLesson: {
+  type: mongoose.Schema.Types.ObjectId,
+  ref: "Lesson",
+  default: null,
+},
   },
   { timestamps: true }
 );

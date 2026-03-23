@@ -1,10 +1,18 @@
 import Registration from "../models/registrationModel.js";
 import Event         from "../models/eventModel.js";
-import { sendEmail } from "../services/emailService.js"; // ← NEW
+import { sendEmail } from "../services/emailService.js";
 
-/* ─────────────────────────────────────────────────────────
-   PUBLIC — Register for an event (frontend form submit)
-───────────────────────────────────────────────────────── */
+const parseArrayField = (val) => {
+  if (!val) return [];
+  if (Array.isArray(val)) return val;
+  try {
+    const parsed = JSON.parse(val);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return val.toString().split(",").map((s) => s.trim()).filter(Boolean);
+  }
+};
+
 export const createRegistration = async (req, res) => {
   try {
     const { event, name, email, phone, type } = req.body;
@@ -22,6 +30,32 @@ export const createRegistration = async (req, res) => {
 
     const registration = await Registration.create({ event, name, email, phone, type });
 
+    // ✅ ADDED — Send confirmation email to user after registration
+    try {
+      await sendEmail({
+        to:      email,
+        subject: `Registration Received — ${eventDoc.title}`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #1B3A5C;">Registration Received!</h2>
+            <p>Hi <strong>${name}</strong>,</p>
+            <p>Thank you for registering. Your registration is currently <strong>pending review</strong>. We will confirm it shortly.</p>
+            <div style="background: #f8f9fa; border-left: 4px solid #2D6A9F; padding: 16px; margin: 16px 0; border-radius: 4px;">
+              <h3 style="margin: 0 0 10px;">${eventDoc.title}</h3>
+              <p style="margin: 4px 0;">📅 <strong>Date:</strong> ${eventDoc.day} ${eventDoc.month}</p>
+              <p style="margin: 4px 0;">⏰ <strong>Time:</strong> ${eventDoc.time || "To be announced"}</p>
+              <p style="margin: 4px 0;">📍 <strong>Location:</strong> ${eventDoc.location || "To be announced"}</p>
+            </div>
+            <p>You will receive another email once your registration is confirmed or if any changes occur.</p>
+            <p style="color: #6c757d; font-size: 13px;">If you have any questions, please contact the event organizer.</p>
+          </div>
+        `,
+      });
+    } catch (emailErr) {
+      // Email fail hone par bhi registration save hogi — sirf log karega
+      console.error("Registration email send failed:", emailErr.message);
+    }
+
     res.status(201).json({
       success: true,
       data:    registration,
@@ -32,9 +66,6 @@ export const createRegistration = async (req, res) => {
   }
 };
 
-/* ─────────────────────────────────────────────────────────
-   ADMIN — GET ALL REGISTRATIONS
-───────────────────────────────────────────────────────── */
 export const getAllRegistrations = async (req, res) => {
   try {
     const { page = 1, limit = 10, search = "", event = "", type = "", status = "" } = req.query;
@@ -68,9 +99,6 @@ export const getAllRegistrations = async (req, res) => {
   }
 };
 
-/* ─────────────────────────────────────────────────────────
-   ADMIN — GET SINGLE REGISTRATION
-───────────────────────────────────────────────────────── */
 export const getRegistrationById = async (req, res) => {
   try {
     const registration = await Registration.findById(req.params.id)
@@ -83,9 +111,6 @@ export const getRegistrationById = async (req, res) => {
   }
 };
 
-/* ─────────────────────────────────────────────────────────
-   ADMIN — GET REGISTRATIONS BY EVENT ID
-───────────────────────────────────────────────────────── */
 export const getRegistrationsByEvent = async (req, res) => {
   try {
     const { page = 1, limit = 10 } = req.query;
@@ -107,16 +132,24 @@ export const getRegistrationsByEvent = async (req, res) => {
   }
 };
 
-/* ─────────────────────────────────────────────────────────
-   ADMIN — UPDATE STATUS + EMAIL USER KO
-───────────────────────────────────────────────────────── */
 export const updateRegistrationStatus = async (req, res) => {
   try {
     const { status } = req.body;
     if (!["pending", "confirmed", "cancelled"].includes(status))
       return res.status(400).json({ success: false, message: "Invalid status" });
 
-    // time/location bhi populate karo — email mein chahiye
+    // ✅ ADDED — Once confirmed or cancelled, status cannot be changed
+    const existing = await Registration.findById(req.params.id);
+    if (!existing)
+      return res.status(404).json({ success: false, message: "Registration not found" });
+
+    if (existing.status === "confirmed" || existing.status === "cancelled") {
+      return res.status(400).json({
+        success: false,
+        message: `Registration is already ${existing.status} and cannot be changed`,
+      });
+    }
+
     const registration = await Registration.findByIdAndUpdate(
       req.params.id,
       { status },
@@ -126,15 +159,14 @@ export const updateRegistrationStatus = async (req, res) => {
     if (!registration)
       return res.status(404).json({ success: false, message: "Registration not found" });
 
-    // ── Email ─────────────────────────────────────────
     try {
       if (status === "confirmed") {
         await sendEmail({
           to:      registration.email,
-          subject: `✅ Registration Confirmed — ${registration.event.title}`,
+          subject: `Registration Confirmed — ${registration.event.title}`,
           html: `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-              <h2 style="color: #28a745;">🎉 Your Registration is Confirmed!</h2>
+              <h2 style="color: #28a745;">Your Registration is Confirmed!</h2>
               <p>Hi <strong>${registration.name}</strong>,</p>
               <p>Your registration for the following event has been <strong>confirmed</strong>:</p>
               <div style="background: #f8f9fa; border-left: 4px solid #28a745; padding: 16px; margin: 16px 0; border-radius: 4px;">
@@ -153,7 +185,7 @@ export const updateRegistrationStatus = async (req, res) => {
       if (status === "cancelled") {
         await sendEmail({
           to:      registration.email,
-          subject: `❌ Registration Cancelled — ${registration.event.title}`,
+          subject: `Registration Cancelled — ${registration.event.title}`,
           html: `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
               <h2 style="color: #dc3545;">Registration Cancelled</h2>
@@ -166,10 +198,8 @@ export const updateRegistrationStatus = async (req, res) => {
         });
       }
     } catch (emailErr) {
-      // Email fail hone par bhi status update hoga — sirf log karega
       console.error("Email send failed:", emailErr.message);
     }
-    // ─────────────────────────────────────────────────
 
     res.json({ success: true, data: registration, message: `Status updated to ${status}` });
   } catch {
@@ -177,9 +207,6 @@ export const updateRegistrationStatus = async (req, res) => {
   }
 };
 
-/* ─────────────────────────────────────────────────────────
-   ADMIN — DELETE REGISTRATION
-───────────────────────────────────────────────────────── */
 export const deleteRegistration = async (req, res) => {
   try {
     const registration = await Registration.findByIdAndDelete(req.params.id);
@@ -191,9 +218,6 @@ export const deleteRegistration = async (req, res) => {
   }
 };
 
-/* ─────────────────────────────────────────────────────────
-   ADMIN — STATS
-───────────────────────────────────────────────────────── */
 export const getRegistrationStats = async (req, res) => {
   try {
     const [total, confirmed, pending, cancelled] = await Promise.all([

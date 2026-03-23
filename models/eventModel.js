@@ -11,34 +11,30 @@ const organizerSchema = new mongoose.Schema({
   position: { type: String },
   email:    { type: String },
   phone:    { type: String },
-  image:    { type: String }, // uploads/events/organizers/...
+  image:    { type: String },
 }, { _id: false });
 
 const eventSchema = new mongoose.Schema(
   {
-    // ── Basic Info ──────────────────────────────────────
     title:       { type: String, required: true },
-    day:         { type: String, required: true },   // "15"
-    month:       { type: String, required: true },   // "May"
-    date:        { type: String },                   // "10/24/2023" display format
-    time:        { type: String },                   // "09:00 AM - 04:00 PM"
+    day:         { type: String, required: true },
+    month:       { type: String, required: true },
+    date:        { type: String },
+    time:        { type: String },
     location:    { type: String },
-    category:    { type: String, default: "General" },
+    category:    { type: String },
+    seatsCount:  { type: String },       
 
-    // ── Content ─────────────────────────────────────────
     description:  { type: String },
     description2: { type: String },
     highlights:   [{ type: String }],
     schedule:     [scheduleSchema],
 
-    // ── Images ──────────────────────────────────────────
-    image:   { type: String },   // main banner image
-    gallery: [{ type: String }], // gallery image paths
+    image:   { type: String },
+    gallery: [{ type: String }],
 
-    // ── Organizer ────────────────────────────────────────
     organizer: organizerSchema,
 
-    // ── Meta ─────────────────────────────────────────────
     isFeatured:   { type: Boolean, default: false },
     isActive:     { type: Boolean, default: true },
     displayOrder: { type: Number, default: 0 },

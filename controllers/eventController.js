@@ -12,9 +12,6 @@ const parseArrayField = (val) => {
   }
 };
 
-/* ─────────────────────────────────────────────────────────
-   ADMIN — GET ALL EVENTS
-───────────────────────────────────────────────────────── */
 export const getAllEvents = async (req, res) => {
   try {
     const { page = 1, limit = 10, search = "", category = "", isActive = "" } = req.query;
@@ -45,9 +42,6 @@ export const getAllEvents = async (req, res) => {
   }
 };
 
-/* ─────────────────────────────────────────────────────────
-   ADMIN — GET SINGLE EVENT
-───────────────────────────────────────────────────────── */
 export const getEventById = async (req, res) => {
   try {
     const event = await Event.findById(req.params.id);
@@ -58,9 +52,6 @@ export const getEventById = async (req, res) => {
   }
 };
 
-/* ─────────────────────────────────────────────────────────
-   ADMIN — CREATE EVENT
-───────────────────────────────────────────────────────── */
 export const createEvent = async (req, res) => {
   try {
     const {
@@ -68,37 +59,36 @@ export const createEvent = async (req, res) => {
       description, description2, highlights, schedule,
       isFeatured, isActive, displayOrder,
       organizerName, organizerPosition, organizerEmail, organizerPhone,
+      seatsCount,
     } = req.body;
 
     if (!title || !day || !month)
       return res.status(400).json({ success: false, message: "Title, day and month are required" });
 
-    // ── Banner image → Cloudinary ────────────────────────
+    // ✅ multer syntax — req.files.image[0].buffer
     let image = null;
-    if (req.files?.image)
-      image = await uploadToCloudinary(req.files.image.data, "events");
+    if (req.files?.image?.[0])
+      image = await uploadToCloudinary(req.files.image[0].buffer, "events");
 
-    // ── Organizer image → Cloudinary ─────────────────────
     let organizerImage = null;
-    if (req.files?.organizerImage)
-      organizerImage = await uploadToCloudinary(req.files.organizerImage.data, "events/organizers");
+    if (req.files?.organizerImage?.[0])
+      organizerImage = await uploadToCloudinary(req.files.organizerImage[0].buffer, "events/organizers");
 
-    // ── Gallery images → Cloudinary ───────────────────────
     let gallery = [];
     if (req.files?.gallery) {
-      const rawGallery = Array.isArray(req.files.gallery) ? req.files.gallery : [req.files.gallery];
-      for (const file of rawGallery) {
-        const url = await uploadToCloudinary(file.data, "events/gallery");
+      for (const file of req.files.gallery) {
+        const url = await uploadToCloudinary(file.buffer, "events/gallery");
         gallery.push(url);
       }
     }
 
     const event = await Event.create({
       title, day, month,
-      date:         date     || "",
-      time:         time     || "",
-      location:     location || "",
-      category:     category || "General",
+      date:         date        || "",
+      time:         time        || "",
+      location:     location    || "",
+      category:     category    || "",
+      seatsCount:   seatsCount  || "",
       description:  description  || "",
       description2: description2 || "",
       highlights:   parseArrayField(highlights),
@@ -118,13 +108,11 @@ export const createEvent = async (req, res) => {
 
     res.status(201).json({ success: true, data: event, message: "Event created successfully" });
   } catch (error) {
+  
     res.status(500).json({ success: false, message: error.message || "Server error" });
   }
 };
 
-/* ─────────────────────────────────────────────────────────
-   ADMIN — UPDATE EVENT
-───────────────────────────────────────────────────────── */
 export const updateEvent = async (req, res) => {
   try {
     const existing = await Event.findById(req.params.id);
@@ -140,28 +128,27 @@ export const updateEvent = async (req, res) => {
     if (updates.isActive !== undefined)
       updates.isActive = updates.isActive === "true" || updates.isActive === true;
 
-    // ── Banner image ─────────────────────────────────────
-    if (req.files?.image) {
+    // ✅ multer syntax — image
+    if (req.files?.image?.[0]) {
       await deleteFromCloudinary(existing.image);
-      updates.image = await uploadToCloudinary(req.files.image.data, "events");
+      updates.image = await uploadToCloudinary(req.files.image[0].buffer, "events");
     } else if (updates.removeImage === "true") {
       await deleteFromCloudinary(existing.image);
       updates.image = null;
     }
     delete updates.removeImage;
 
-    // ── Organizer image ──────────────────────────────────
+    // ✅ multer syntax — organizerImage
     const existingOrgImg = existing.organizer?.image;
-    if (req.files?.organizerImage) {
+    if (req.files?.organizerImage?.[0]) {
       await deleteFromCloudinary(existingOrgImg);
-      updates["organizer.image"] = await uploadToCloudinary(req.files.organizerImage.data, "events/organizers");
+      updates["organizer.image"] = await uploadToCloudinary(req.files.organizerImage[0].buffer, "events/organizers");
     } else if (updates.removeOrganizerImage === "true") {
       await deleteFromCloudinary(existingOrgImg);
       updates["organizer.image"] = null;
     }
     delete updates.removeOrganizerImage;
 
-    // ── Organizer flat fields → nested ───────────────────
     const org = existing.organizer?.toObject?.() || existing.organizer || {};
     updates.organizer = {
       name:     updates.organizerName     ?? org.name     ?? "",
@@ -178,7 +165,12 @@ export const updateEvent = async (req, res) => {
     delete updates.organizerPhone;
     delete updates["organizer.image"];
 
-    // ── Gallery: remove selected ─────────────────────────
+    // ✅ seatsCount explicitly set
+    if (req.body.seatsCount !== undefined) {
+      updates.seatsCount = req.body.seatsCount;
+    }
+
+    // ✅ gallery — remove selected
     if (updates.removeGallery) {
       const toRemove = parseArrayField(updates.removeGallery);
       const remaining = (existing.gallery || []).filter((url) => !toRemove.includes(url));
@@ -189,11 +181,10 @@ export const updateEvent = async (req, res) => {
     }
     delete updates.removeGallery;
 
-    // ── Gallery: add new ─────────────────────────────────
+    // ✅ multer syntax — gallery new files
     if (req.files?.gallery) {
-      const rawGallery = Array.isArray(req.files.gallery) ? req.files.gallery : [req.files.gallery];
-      for (const file of rawGallery) {
-        const url = await uploadToCloudinary(file.data, "events/gallery");
+      for (const file of req.files.gallery) {
+        const url = await uploadToCloudinary(file.buffer, "events/gallery");
         updates.gallery.push(url);
       }
     }
@@ -201,13 +192,11 @@ export const updateEvent = async (req, res) => {
     const event = await Event.findByIdAndUpdate(req.params.id, updates, { new: true, runValidators: true });
     res.json({ success: true, data: event, message: "Event updated successfully" });
   } catch (error) {
+    
     res.status(500).json({ success: false, message: error.message || "Server error" });
   }
 };
 
-/* ─────────────────────────────────────────────────────────
-   ADMIN — DELETE EVENT
-───────────────────────────────────────────────────────── */
 export const deleteEvent = async (req, res) => {
   try {
     const event = await Event.findById(req.params.id);
@@ -224,9 +213,6 @@ export const deleteEvent = async (req, res) => {
   }
 };
 
-/* ─────────────────────────────────────────────────────────
-   ADMIN — TOGGLE isActive
-───────────────────────────────────────────────────────── */
 export const toggleEventStatus = async (req, res) => {
   try {
     const event = await Event.findById(req.params.id);
@@ -239,21 +225,25 @@ export const toggleEventStatus = async (req, res) => {
   }
 };
 
-/* ─────────────────────────────────────────────────────────
-   PUBLIC — GET ALL ACTIVE EVENTS
-───────────────────────────────────────────────────────── */
 export const getPublicEvents = async (req, res) => {
   try {
-    const { category, limit = 10, page = 1 } = req.query;
+    const { category, limit = 10, page = 1, search = "" } = req.query;
     const query = { isActive: true };
-    if (category) query.category = category;
+    if (category) query.category = { $regex: category, $options: "i" };
+    if (search) {
+      query.$or = [
+        { title:    { $regex: search, $options: "i" } },
+        { location: { $regex: search, $options: "i" } },
+        { category: { $regex: search, $options: "i" } },
+      ];
+    }
 
     const total  = await Event.countDocuments(query);
     const events = await Event.find(query)
       .sort({ displayOrder: 1, createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(Number(limit))
-      .select("title day month date time location category image isFeatured description");
+      .select("title day month date time location category image isFeatured description seatsCount");
 
     res.json({
       success: true, data: events,
@@ -264,9 +254,6 @@ export const getPublicEvents = async (req, res) => {
   }
 };
 
-/* ─────────────────────────────────────────────────────────
-   PUBLIC — GET SINGLE ACTIVE EVENT
-───────────────────────────────────────────────────────── */
 export const getPublicEventById = async (req, res) => {
   try {
     const event = await Event.findOne({ _id: req.params.id, isActive: true });

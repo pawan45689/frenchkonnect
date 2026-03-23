@@ -1,15 +1,13 @@
 import settingModel from "../models/settingModel.js";
 import { uploadToCloudinary, deleteFromCloudinary } from "../utils/cloudinary.js";
 
-// ==========================================
-// GET SETTINGS (Single record)
-// ==========================================
 export const getSettings = async (req, res) => {
   try {
     let settings = await settingModel.findOne();
 
     if (!settings) {
       settings = new settingModel({
+        siteName: "",
         email: "", mobile: "", address: "",
         facebook: "", twitter: "", instagram: "", linkedin: "", youtube: ""
       });
@@ -22,12 +20,9 @@ export const getSettings = async (req, res) => {
   }
 };
 
-// ==========================================
-// UPDATE SETTINGS
-// ==========================================
 export const updateSettings = async (req, res) => {
   try {
-    const { email, mobile, address, facebook, twitter, instagram, linkedin, youtube } = req.body;
+    const { siteName, email, mobile, address, facebook, twitter, instagram, linkedin, youtube } = req.body;
 
     if (!email || !mobile || !address) {
       return res.status(400).json({ success: false, message: "Email, mobile, and address are required" });
@@ -37,11 +32,13 @@ export const updateSettings = async (req, res) => {
 
     if (!settings) {
       settings = new settingModel({
+        siteName: siteName || "",
         email, mobile, address,
         facebook: facebook || "", twitter: twitter || "",
         instagram: instagram || "", linkedin: linkedin || "", youtube: youtube || ""
       });
     } else {
+      settings.siteName  = siteName  || "";
       settings.email     = email;
       settings.mobile    = mobile;
       settings.address   = address;
@@ -52,13 +49,11 @@ export const updateSettings = async (req, res) => {
       settings.youtube   = youtube   || "";
     }
 
-    // Logo → Cloudinary
     if (req.files?.logo) {
       await deleteFromCloudinary(settings.logo);
       settings.logo = await uploadToCloudinary(req.files.logo.data, "settings");
     }
 
-    // Favicon → Cloudinary
     if (req.files?.favicon) {
       await deleteFromCloudinary(settings.favicon);
       settings.favicon = await uploadToCloudinary(req.files.favicon.data, "settings");
