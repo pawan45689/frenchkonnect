@@ -92,6 +92,11 @@ const userSchema = new mongoose.Schema(
   ref: "Lesson",
   default: null,
 },
+purchasedPlans: {
+  type: [String],
+  enum: ["tef", "tcf", "combo"],
+  default: [],
+},
   },
   { timestamps: true }
 );

@@ -7,7 +7,6 @@ const levelSchema = new mongoose.Schema(
       required: [true, "Level name is required"],
       unique: true,
       trim: true,
-      // No enum — admin can enter anything: A1, A2, Teen Basics, Business French etc.
     },
     title: {
       type: String,
@@ -38,6 +37,12 @@ const levelSchema = new mongoose.Schema(
     isFree: {
       type: Boolean,
       default: false,
+    },
+    // ✅ NEW: Ye field batata hai kaunsa plan chahiye is level ko access karne ke liye
+    planKey: {
+      type: String,
+      enum: ["tef", "tcf", "combo"],
+      default: "tef",
     },
     isActive: {
       type: Boolean,

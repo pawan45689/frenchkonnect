@@ -1,5 +1,6 @@
 import express from "express";
-
+import checkSubscription from "../middleware/checkSubscription.js";
+import { protect } from "../middleware/authMiddleware.js";
 import {
   createLevel,
   getAllLevels,
@@ -39,7 +40,7 @@ const router = express.Router();
 ══════════════════════════════════════════════════════════════ */
 router.get("/levels",                     getPublicLevels);
 router.get("/levels/:levelId/sections",   getPublicSections);
-router.get("/lessons/:lessonId",          getLessonForUser);
+router.get("/lessons/:lessonId",          protect, checkSubscription, getLessonForUser);
 
 /* ══════════════════════════════════════════════════════════════
    ADMIN — LEVEL ROUTES

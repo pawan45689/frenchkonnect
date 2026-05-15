@@ -30,6 +30,7 @@ import liveClassRoutes from "./routes/liveClassRoutes.js";
 import dashboardRoutes  from "./routes/dashboardRoutes.js";
 import leaderboardRoutes from "./routes/leaderboardRoutes.js";
 import heroSectionRoutes from "./routes/heroSectionRoutes.js";
+import paymentRoutes from "./routes/paymentRoutes.js";
 const app = express();
 
 // ── Middleware ───────────────────────────────────────────────
@@ -93,6 +94,7 @@ app.use("/api/v1", feedPostRoutes);
 app.use("/api/v1", liveClassRoutes);
 app.use("/api/v1/leaderboard", leaderboardRoutes);
 app.use("/api/v1/dashboard",    dashboardRoutes);
+app.use("/api/v1/payment", paymentRoutes);
 app.get("/", (req, res) => {
   res.json({ success: true, message: "Server Running", version: "1.0.0" });
 });

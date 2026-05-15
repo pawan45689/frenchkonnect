@@ -1,14 +1,15 @@
 import mongoose from "mongoose";
 import dns from 'dns';
 
-// Set DNS to Google's public DNS
+// ✅ Already sahi hai - Google DNS
 dns.setServers(['8.8.8.8', '8.8.4.4']);
 
 const connectDB = async () => {
   try {
     const options = {
-      serverSelectionTimeoutMS: 10000,
+      serverSelectionTimeoutMS: 30000, // ⬅️ 10000 se 30000 karo (zyada time do)
       socketTimeoutMS: 45000,
+      family: 4, // ⬅️ Yeh add karo — IPv4 force karta hai, DNS issues fix hote hain
     };
 
     const conn = await mongoose.connect(process.env.MONGO_URL, options);
