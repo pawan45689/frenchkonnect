@@ -636,7 +636,7 @@ export const deleteUser = async (req, res) => {
 export const updateUser = async (req, res) => {
   try {
     const { id } = req.params;
-    const { fullName, mobile } = req.body;
+    const { fullName, mobile, role } = req.body;   // ← role add kiya
 
     const user = await userModel.findById(id);
 
@@ -647,8 +647,26 @@ export const updateUser = async (req, res) => {
       });
     }
 
+    // Agar khud apna hi role change kar raha hai, to block karo (self-demote se lockout na ho)
+   if (role && role !== user.role && String(req.user._id) === String(user._id)) {
+  return res.status(400).json({
+    success: false,
+    message: "You cannot change your own role",
+  });
+}
+
+    // Sirf allowed roles hi accept karo
+    const allowedRoles = ["user", "admin", "teacher", "student"];
+    if (role && !allowedRoles.includes(role)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid role value",
+      });
+    }
+
     if (fullName) user.fullName = fullName;
     if (mobile) user.mobile = mobile;
+    if (role) user.role = role;   // ← role update
 
     await user.save();
 
@@ -664,10 +682,10 @@ export const updateUser = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Update User Error:", error);
     res.status(500).json({
       success: false,
-      message: "Failed to update user",
+      message: "Something went wrong",
+      error: error.message,
     });
   }
 };

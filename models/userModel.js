@@ -31,11 +31,11 @@ const userSchema = new mongoose.Schema(
       unique: true,
       sparse: true,
     },
-    role: {
-      type: String,
-      enum: ["user", "admin"],
-      default: "user",
-    },
+   role: {
+  type: String,
+  enum: ["user", "admin", "teacher", "student"],   // ← teacher, student add kiya
+  default: "user",
+},
     isVerified: {
       type: Boolean,
       default: false,
