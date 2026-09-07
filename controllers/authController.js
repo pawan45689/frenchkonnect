@@ -4,13 +4,15 @@ import { generateOTP, hashOTP, verifyOTP } from "../helper/otpHelper.js";
 import { sendOTPEmail } from "../services/emailService.js";
 import JWT from "jsonwebtoken";
 import config from "../config/config.js";
-import { uploadToCloudinary, deleteFromCloudinary } from "../utils/cloudinary.js";
+import {
+  uploadToCloudinary,
+  deleteFromCloudinary,
+} from "../utils/cloudinary.js";
 
 // ==========================================
 // SIGNUP/REGISTER CONTROLLER
 // ==========================================
 export const signupController = async (req, res) => {
-
   try {
     const {
       fullName,
@@ -591,7 +593,9 @@ export const getUserById = async (req, res) => {
       .select("-password -resetPasswordOTP -resetPasswordOTPExpire");
 
     if (!user) {
-      return res.status(404).json({ success: false, message: "User not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "User not found" });
     }
 
     res.status(200).json({ success: true, user });
@@ -633,10 +637,13 @@ export const deleteUser = async (req, res) => {
 // ==========================================
 // UPDATE USER
 // ==========================================
+// ==========================================
+// UPDATE USER
+// ==========================================
 export const updateUser = async (req, res) => {
   try {
     const { id } = req.params;
-    const { fullName, mobile, role } = req.body;   // ← role add kiya
+    const { fullName, mobile, role } = req.body;
 
     const user = await userModel.findById(id);
 
@@ -647,26 +654,37 @@ export const updateUser = async (req, res) => {
       });
     }
 
-    // Agar khud apna hi role change kar raha hai, to block karo (self-demote se lockout na ho)
-   if (role && role !== user.role && String(req.user._id) === String(user._id)) {
-  return res.status(400).json({
-    success: false,
-    message: "You cannot change your own role",
-  });
-}
+    // Sirf ye roles hi assign karne ki ijazat hai — "admin" is list mein NAHI hai
+    const allowedRoles = ["user", "student", "teacher", "content-editor", "video-editor"];
 
-    // Sirf allowed roles hi accept karo
-    const allowedRoles = ["user", "admin", "teacher", "student"];
-    if (role && !allowedRoles.includes(role)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid role value",
-      });
+    if (role) {
+      // Koi bhi admin role assign nahi kar sakta is API se
+      if (role === "admin") {
+        return res.status(403).json({
+          success: false,
+          message: "Admin role cannot be assigned from here",
+        });
+      }
+
+      if (!allowedRoles.includes(role)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid role value",
+        });
+      }
+
+      // Khud apna role change nahi kar sakta
+      if (role !== user.role && String(req.user._id) === String(user._id)) {
+        return res.status(400).json({
+          success: false,
+          message: "You cannot change your own role",
+        });
+      }
     }
 
     if (fullName) user.fullName = fullName;
     if (mobile) user.mobile = mobile;
-    if (role) user.role = role;   // ← role update
+    if (role) user.role = role;
 
     await user.save();
 
@@ -689,7 +707,6 @@ export const updateUser = async (req, res) => {
     });
   }
 };
-
 // ==========================================
 // GET USER STATISTICS
 // ==========================================
@@ -730,16 +747,18 @@ export const getUserStats = async (req, res) => {
 // ==========================================
 export const getCurrentUser = async (req, res) => {
   try {
-      console.log("req.user:", req.user);
+    console.log("req.user:", req.user);
     console.log("req.user._id:", req.user._id);
     console.log("req.user.role:", req.user.role);
     const user = await userModel
       .findById(req.user._id)
       .select("-password -resetPasswordOTP -resetPasswordOTPExpire");
-      console.log("DB user:", user);
+    console.log("DB user:", user);
 
     if (!user) {
-      return res.status(404).json({ success: false, message: "User not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "User not found" });
     }
 
     res.status(200).json({ success: true, user });
@@ -754,10 +773,23 @@ export const getCurrentUser = async (req, res) => {
 // ==========================================
 export const updateProfileController = async (req, res) => {
   try {
-    const { name, username, email, mobile, phone, location, bio, avatar, removeAvatar } = req.body;
+    const {
+      name,
+      username,
+      email,
+      mobile,
+      phone,
+      location,
+      bio,
+      avatar,
+      removeAvatar,
+    } = req.body;
 
     const user = await userModel.findById(req.user._id);
-    if (!user) return res.status(404).json({ success: false, message: "User not found" });
+    if (!user)
+      return res
+        .status(404)
+        .json({ success: false, message: "User not found" });
 
     // Avatar handle
     if (removeAvatar === true || removeAvatar === "true") {
@@ -773,16 +805,19 @@ export const updateProfileController = async (req, res) => {
       user.avatar = avatar;
     }
 
-    if (name     !== undefined && name.trim() !== "") user.fullName = name.trim();
+    if (name !== undefined && name.trim() !== "") user.fullName = name.trim();
     if (username !== undefined) user.username = username;
-    if (mobile   !== undefined) user.mobile   = mobile;
-    if (phone    !== undefined) user.phone    = phone;
+    if (mobile !== undefined) user.mobile = mobile;
+    if (phone !== undefined) user.phone = phone;
     if (location !== undefined) user.location = location;
-    if (bio      !== undefined) user.bio      = bio;
+    if (bio !== undefined) user.bio = bio;
 
     if (email && email.trim() !== "" && email !== user.email) {
       const exists = await userModel.findOne({ email });
-      if (exists) return res.status(422).json({ success: false, message: "Email already in use" });
+      if (exists)
+        return res
+          .status(422)
+          .json({ success: false, message: "Email already in use" });
       user.email = email;
     }
 
@@ -792,22 +827,24 @@ export const updateProfileController = async (req, res) => {
       success: true,
       message: "Profile updated successfully",
       user: {
-        _id:       user._id,
-        fullName:  user.fullName,
-        username:  user.username,
-        email:     user.email,
-        phone:     user.phone,
-        mobile:    user.mobile,
-        location:  user.location,
-        bio:       user.bio,
-        avatar:    user.avatar,
-        role:      user.role,
+        _id: user._id,
+        fullName: user.fullName,
+        username: user.username,
+        email: user.email,
+        phone: user.phone,
+        mobile: user.mobile,
+        location: user.location,
+        bio: user.bio,
+        avatar: user.avatar,
+        role: user.role,
         createdAt: user.createdAt,
       },
     });
   } catch (error) {
     console.error("Update Profile Error:", error);
-    res.status(500).json({ success: false, message: "Failed to update profile" });
+    res
+      .status(500)
+      .json({ success: false, message: "Failed to update profile" });
   }
 };
 
@@ -819,16 +856,31 @@ export const updateProfileController = async (req, res) => {
 export const uploadAvatarController = async (req, res) => {
   try {
     if (!req.files || !req.files.avatar)
-      return res.status(400).json({ success: false, message: "No file uploaded" });
+      return res
+        .status(400)
+        .json({ success: false, message: "No file uploaded" });
 
     const file = req.files.avatar;
 
-    const allowed = ["image/jpeg", "image/jpg", "image/png", "image/webp", "image/gif"];
+    const allowed = [
+      "image/jpeg",
+      "image/jpg",
+      "image/png",
+      "image/webp",
+      "image/gif",
+    ];
     if (!allowed.includes(file.mimetype))
-      return res.status(400).json({ success: false, message: "Only images allowed (jpg, png, webp)" });
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message: "Only images allowed (jpg, png, webp)",
+        });
 
     if (file.size > 5 * 1024 * 1024)
-      return res.status(400).json({ success: false, message: "Image must be under 5MB" });
+      return res
+        .status(400)
+        .json({ success: false, message: "Image must be under 5MB" });
 
     // Purani avatar Cloudinary se delete karo (user ya admin dono ka)
     const user = await userModel.findById(req.user._id);
@@ -850,6 +902,8 @@ export const uploadAvatarController = async (req, res) => {
     });
   } catch (error) {
     console.error("Upload Avatar Error:", error);
-    res.status(500).json({ success: false, message: "Failed to upload avatar" });
+    res
+      .status(500)
+      .json({ success: false, message: "Failed to upload avatar" });
   }
 };

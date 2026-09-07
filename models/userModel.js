@@ -33,7 +33,7 @@ const userSchema = new mongoose.Schema(
     },
    role: {
   type: String,
-  enum: ["user", "admin", "teacher", "student"],   // ← teacher, student add kiya
+  enum: ["user", "admin", "student", "teacher", "content-editor", "video-editor"],
   default: "user",
 },
     isVerified: {
